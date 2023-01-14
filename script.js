@@ -5,7 +5,9 @@ const ctx = canvas.getContext('2d');
 const CANVAS_SIZE = 800;
 let LIGHT_SQUARE_COLOR = '#C1C8C9';
 let DARK_SQUARE_COLOR = '#A4A29B';
-const PIECES_PATH = 'resources/pieces/With Shadow/256px/';
+const PIECES_PATH = 'https://raw.githubusercontent.com/thechesslibrary/thechesslibrary.github.io/main/resources/pieces/With%20Shadow/256px/';
+const PIECES_SUFFIX = '?raw=true'
+// const PIECES_PATH = 'resources/pieces/With Shadow/256px/';
 const DESELECTED_GRAY = '#808080';
 let board_flipped = false;
 let globalScale = 1;
@@ -403,6 +405,9 @@ class Piece extends Sprite {
     static get PREFIX() {
         return PIECES_PATH;
     }
+    static get SUFFIX() {
+        return PIECES_SUFFIX;
+    }
     static get PIECE_SIZE() {
         return 100;
     }
@@ -435,7 +440,7 @@ class Piece extends Sprite {
         }
     }
     constructor(piece, sq) {
-        let piece_png = Piece.PREFIX.concat(color(piece), piece, '.png')
+        let piece_png = Piece.PREFIX.concat(color(piece), piece.toUpperCase(), '.png', Piece.SUFFIX)
         super(piece_png, 0, 0, Piece.PIECE_SIZE, Piece.PIECE_SIZE);
         this.piece = piece;
         this.color = color(piece);
@@ -819,10 +824,10 @@ class Game {
                 let pieceDict = {"currentFrame": 0, "totalFrames": 10, "startY": startY, "startWidth": 70, "startHeight": 70,
                 "startTransparency": 1, "endY": dynamicQueue.at(-1).details["y"]["end"] + 5, "startTransparency": 1}
                 if (board_flipped) mainGame.board().halfMoves--;    
-                dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details["x"]["end"] + 10, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "N.png"}))
-                dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details["x"]["end"] + 85, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "B.png"}))
-                dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details["x"]["end"] + 85, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "R.png"}))
-                dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details["x"]["end"] + 85, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "Q.png"}))
+                dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details["x"]["end"] + 10, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "N.png" + PIECES_SUFFIX}))
+                dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details["x"]["end"] + 85, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "B.png" + PIECES_SUFFIX}))
+                dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details["x"]["end"] + 85, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "R.png" + PIECES_SUFFIX}))
+                dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details["x"]["end"] + 85, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "Q.png" + PIECES_SUFFIX}))
                 // console.timeEnd("Game Move")
                 mainGame.board().halfMoves--;
                 return generateSpritesFromBoard(board);
