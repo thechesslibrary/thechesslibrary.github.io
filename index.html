@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+        rel="stylesheet">
+    <title>The Chess Library</title>
+</head>
+
+<body class="background">
+    <link rel="stylesheet" href="style.css" href="https://fonts.googleapis.com/css?family=Roboto">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu">
+    <script src="resources\\jquery.js"></script>
+    <script src="resources\\jquery-csv.js"></script>
+    <p id="thechesslibrary" class="banner-text" onclick="document.getElementById('banner-extra').style.visibility = 'visible';">thechesslibrary</p>
+    <div class="banner-extra" id="banner-extra">
+        <a href="../about.html"><p id="about" class="banner-text">about</p></a>
+        <p class="banner-text unitalic">•</p>
+        <p id="source" class="banner-text">source code</p>
+        <p class="banner-text unitalic">•</p>
+        <a href="../donate.html"><p id="donate" class="banner-text">donate</p></a>
+    </div>
+    <div class="flexbox-container">
+        <div id="chessboard-column">
+            <div id="icon-column">
+                <img class="options-icon legals" src="resources\\icons\\legals-enabled.png"></img>
+                <img class="options-icon arrows" src="resources\\icons\\arrows-enabled.png"></img>
+                <!-- <img class="options-icon" src="resources\\icons\\legals-enabled.png"></img> -->
+            </div>
+            <div id="chessboard-column-main">
+                <canvas id="chessboard" width="800" height="800"></canvas>
+                <div id="moves-display">
+                    <div class="moves-block">
+                    </div>
+                    <div class="selected-game-container" style="visibility: collapse; height: 50px;">
+                        <div class="selected-game-info">
+                            <p class="selected-game-text players">Botvinnik, Mikhail - Tal, Mikhail </p>
+                            <p class="selected-game-text year">(1960)</p>
+                            <p class="selected-game-text event">1960 World Championship.</p>
+                            <p class="selected-game-text result"> 0-1 </p>
+                        </div>
+                        <div class="icon-container">
+                            <svg class="icon youtube-icon" src="resources\\icons\\export-unselected.svg"></svg>
+                            <img class="icon export-icon normal" src="resources\\icons\\export-unselected.svg"></img>
+                            <img class="icon export-icon blue-filter"
+                                src="resources\\icons\\export-unselected.svg"></img>
+                        </div>
+                    </div>
+                </div>
+                <div id="move-branches">
+                    <div class="move-branch">
+                        <p class="branch text no-left-padding">e4</p>
+                        <div class="branch percentage">
+                            <div class="white-percentage"></div>
+                            <div class="draw-percentage"></div>
+                            <div class="black-percentage"></div>
+                        </div>
+                        <p class="branch text no-right-padding">60%</p>
+            </div>
+            </div>
+            
+            </div>
+        </div>
+
+        <div id="chess-directory" width="500" height="500">
+            <div id="directory-flex-container">
+                <div class="directory-header">
+                    <div class="directory-header-text">
+                        <p>showing</p>
+                        <p id="number-of-games">142,357</p>
+                        <select name="Collection" id="collection">
+                            <option value="world_championships">World Championship</option>
+                            <option value="candidates">Candidates</option>
+                            <option value="interzonals">Interzonal</option>
+                            <option value="tcec">TCEC</option>
+                            <option value="lichess_broadcasts">Lichess Broadcast (2017—)</option>
+                            <option value="titled_arena">Lichess Titled Arena</option>
+                            <option value="titled_tuesday">Titled Tuesday (2019—)</option>
+                        </select>
+                        <br>
+                        <p> games sorted by </p>
+                        <select name="Sort" id="Sort">
+                            <option value="WhiteEloDsc">White Elo ▼</option>
+                            <option value="BlackEloDsc">Black Elo ▼</option>
+                            <option value="DateDsc">Date ▼</option>
+                            <option value="BlackEloAsc">Black Elo ▲</option>
+                            <option value="WhiteEloAsc">White Elo ▲</option>
+                            <option value="DateAsc">Date ▲</option>
+                        </select>
+                        <div class="p"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="games-container" id="games-container">
+                <div class="game-container">
+                    <p class="event-date-result">2022 FIDE World Teams Championship</p>
+                    <p class="event-date-result date-result">2022.11.03 &nbsp;&nbsp;•&nbsp;&nbsp; 1/2-1/2</p>
+                    <p class="title">GM </p>
+                    <p class="player">Wojtaszek, Radoslaw</p>
+                    <p class="rating">(2636)</p>
+                    <div style="margin: 0;"></div>
+                    <p class="title black">GM </p>
+                    <p class="player black">Lu, Shanglei</p>
+                    <p class="rating black">(2627)</p>
+                </div>
+            </div>
+            <script src="script.js"></script>
+            <script src="database.js"> </script>
+            <script src="move-display.js"> </script>
+        </div>
+
+</body>
