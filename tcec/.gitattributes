@@ -1,0 +1,2 @@
+candidates filter=lfs diff=lfs merge=lfs -text
+titled_arena/* filter=lfs diff=lfs merge=lfs -text

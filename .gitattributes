@@ -1,0 +1,8 @@
+*.csv filter=lfs diff=lfs merge=lfs -text
+transpositions.json filter=lfs diff=lfs merge=lfs -text
+*.json filter=lfs diff=lfs merge=lfs -text
+world_championships/data.csv filter=lfs diff=lfs merge=lfs -text
+titled_arena/data.csv filter=lfs diff=lfs merge=lfs -text
+titled_tuesday/data.csv filter=lfs diff=lfs merge=lfs -text
+tcec/data.csv filter=lfs diff=lfs merge=lfs -text
+lichess_broadcasts/data.csv filter=lfs diff=lfs merge=lfs -text
