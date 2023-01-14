@@ -1,9 +1,12 @@
+const prefix = 'https://media.githubusercontent.com/media/thechesslibrary/thechesslibrary.github.io/databases/';
+// const prefix = 'resources/databases/'
+
 $(document).ready(() => {
     document.chessboardEnabled = false;
     // $(".games-container").empty();
     loadDatabase($("#collection").val());
-    $.get('resources/databases/lichess_broadcasts/transpositions.json', (t) => {
-        database.transpositions = t;
+    $.get(prefix + 'lichess_broadcasts/transpositions.json', (t) => {
+        database.transpositions = JSON.parse(t);
     });
     
 });
@@ -21,15 +24,16 @@ function loadDatabase(db) {
         $(".games-container").empty();
         displayGame(['','','','Loading Games...','This may take a second.','','','','','','','','',''], null)
         activeDatabase = db;
-        $.get('resources/databases/' + db + '/data.csv', (d) => {
+        $.get(prefix + db + '/data.csv', (d) => {
             database.data = $.csv.toArrays(d);
             database.columns = database.data.shift();
-            $.get('resources/databases/' + db + '/indexes.json', (i) => {
-                database.indexes = i;
+            $.get(prefix + db + '/indexes.json', (i) => {
+                database.indexes = JSON.parse(i);
             }).done();
-            // $.get('resources/databases/' + db + '/transpositions.json', (t) => {
+            // $.get(prefix + db + '/transpositions.json', (t) => {
             //     database.transpositions = t;});
-            $.get('resources/databases/' + db + '/ranges.json', (r) => {
+            $.get(prefix + db + '/ranges.json', (r) => {
+                r = JSON.parse(r);
                 database.rangeLookup = new Map();
                 for (let moveLength of Object.keys(r)) {
                     if (moveLength == "maxLength") {
@@ -346,7 +350,7 @@ let loopStep = 0;
 let loopNull;
 setInterval(() => {
     [loopRange, loopStep, loopNull] = searchForGames(loopRange, loopStep, document.directory.upToDate);
-}, 750);
+}, 450);
 
 setInterval(() => {
     if (mainGame.currentBoard == 0) {
