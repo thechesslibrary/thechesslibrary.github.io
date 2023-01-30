@@ -1216,7 +1216,7 @@ function getValidMoves(startingSquare, board, kingCapturable=false) {
 }
 
 let broadcastTimer = 0;
-let broadcastSpeed = 500;
+let broadcastSpeed = window.matchMedia("@media (min-width:480px)") ? 250 : 500;
 
 let mouseDownFrames = 0;
 let mouseDown = false;

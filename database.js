@@ -336,7 +336,7 @@ function getSearchRanges(transpositions) {
         }
     }
     document.branches.branches = branches;
-    const timeout = [...requests].some(x => !document.directory.search.cache.has(x)) ? 500 : 0;
+    const timeout = [...requests].some(x => !document.directory.search.cache.has(x)) && !window.matchMedia("@media (min-width:480px)") ? 500 : 0;
     setTimeout((r) => pullGames(Array.from(r), $("#collection").val()), timeout, requests);
     return new ScheduledTask(gamesObserver, [requests.size]).setSleep(5);
 }
