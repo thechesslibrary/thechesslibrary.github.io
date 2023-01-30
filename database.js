@@ -108,6 +108,7 @@ document.directory.nextBoards = [];
 
 function prepareDirectory(boards) {
     $("#games-container").empty();
+    displayGame(['','','','Loading Games...','This may take a second.','','','','','','','','',''], null);
     if (boards.length > 60) {
         document.directory.upToDate = false;
         localDirectory.transpositions = [];
@@ -352,6 +353,7 @@ function gamesObserver(count) {
 
 function pullGames(requests, database) {
     const criteria = [$("#Sort").val().slice(0, -3), $("#Sort").val().slice(-3)];
+    const collection = $("#collection").val();
     document.directory.search.temp = [];
     $.each(requests, (i, r) => {
         let location;
@@ -359,16 +361,16 @@ function pullGames(requests, database) {
             location = `${prefix}${database}/chunks/${zfill(r[1])}.csv`;
         else
             location = `${prefix}${database}/sorted/${criteria[0]}/${criteria[1]}/${r[0]}/${zfill(r[1])}.csv`;
-        games = document.directory.search.cache[r.toString()]
+        games = document.directory.search.cache[r.toString() + criteria.toString() + ',' + collection];
         if (games) {
             document.directory.search.temp.push(games);
-            console.log(`cache hit ${location}`)
+            console.log(`cache hit ${r.toString() + criteria.toString() + ',' + collection}`)
             return;
         } else {
         $.when($.get(location)).done(games => {
-                console.log(`cache miss ${location}`)
+                console.log(`cache miss ${r.toString() + criteria.toString() + ',' + collection}`)
                 const arr = $.csv.toArrays(games).slice(1, -1);
-                document.directory.search.cache[r.toString()] = arr;
+                document.directory.search.cache[r.toString() + criteria.toString() + ',' + collection] = arr;
                 document.directory.search.temp.push(arr);
             });
         }
