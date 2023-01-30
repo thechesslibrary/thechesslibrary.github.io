@@ -134,11 +134,10 @@ function getTranspositions(aliases, transpositions, visited, currMoveLength, mov
         let alias = aliases[a];
         const alias_full = [...transpositions].filter(x => x.startsWith(alias)).at(0);
         if (alias.length == moves.length && !transpositions.has(alias)) transpositions.add(alias);
-        const collection = $("#collection").val();
         while (aliases[a].length > currMoveLength && alias.length > 8) {
             if (!visited.has(aliases[a])) {
                 let temp = database.transpositions[aliases[a].length].reduce((acc, curr) => { if (curr.includes(aliases[a])) acc.push(...curr.filter(x => !aliases.includes(x))); return acc; }, []);
-                temp = temp.filter(x => !!database.lookup.get(Math.min(x.length, maxSize[collection])).get(x.slice(0, maxSize[collection])));
+                temp = temp.filter(x => !!database.lookup.get(Math.min(x.length, Math.max(Object.keys(database.lookup)))).get(x.slice(0, Object.keys(database.lookup))));
                 temp = temp.map(x => x + alias_full.slice(x.length))
                 temp = temp.filter(x => !transpositions.has(x))
                 visited.add(aliases[a]);
