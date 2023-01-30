@@ -1,3 +1,5 @@
+// Note: every use of the word "scan" in this document refers to the ChessScan notation method, as outlined in the root directory.
+
 const canvas = document.getElementById('chessboard');
 const ctx = canvas.getContext('2d');
 const CANVAS_SIZE = 800;

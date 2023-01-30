@@ -6,7 +6,7 @@ $(document).ready(() => {
     // $(".games-container").empty();
     loadDatabase($("#collection").val());
     $.get(prefix + 'transpositions.json', (t) => {
-        database.transpositions = t;
+        database.transpositions = JSON.parse(t);
     });
     
 });
@@ -22,10 +22,11 @@ function loadDatabase(db) {
         document.directory.discoverRanges = [];
         document.directory.transpositions = [];
         $(".games-container").empty();
-        displayGame(['','','','Loading Games...','This may take a second.','','','','','','','','',''], null)
+        displayGame(['','','','Loading Games...','This may take a second.','','','','','','','','',''], null);
         activeDatabase = db;
         $.get(prefix + db + '/lookups/lookups.json', (r) => {
                 database.lookup = new Map();
+                r = JSON.parse(r);
                 for (let moveLength of Object.keys(r)) {
                     let section = new Map();
                     for (const [move, data] of Object.entries(r[moveLength])) {
@@ -116,28 +117,28 @@ function prepareDirectory(boards) {
     loadDatabase($("#collection").val());
     document.directory.nextBoards = null;
     $("#number-of-games").text(0);
-    // document.branches.upToDate = false;
     document.directory.upToDate = !document.directory.upToDate;
     boards = boards.slice(1);
     const moves = boards.reduce((acc, curr) => acc += intToB64FourChr(curr.scan), '')
     let aliases = [moves];
     let transpositions = new Set();
     transpositions.add(moves);
-    let moveCount = 0;
     let currMoveLength = moves.length + 4;
     let visited = new Set();
     return new ScheduledTask(getTranspositions, [aliases, transpositions, visited, currMoveLength, moves]).setSleep(5);
 }
+const maxSize = {"world_championships": 2, "titled_tuesday": 32, "titled_arena": 16, "candidates": 2, "interzonals": 2, "lichess_broadcasts": 8};
 function getTranspositions(aliases, transpositions, visited, currMoveLength, moves) {
     let remLength = aliases.length
     for (let a = 0; a < remLength; a++) {
         let alias = aliases[a];
         const alias_full = [...transpositions].filter(x => x.startsWith(alias)).at(0);
         if (alias.length == moves.length && !transpositions.has(alias)) transpositions.add(alias);
+        const collection = $("#collection").val();
         while (aliases[a].length > currMoveLength && alias.length > 8) {
             if (!visited.has(aliases[a])) {
                 let temp = database.transpositions[aliases[a].length].reduce((acc, curr) => { if (curr.includes(aliases[a])) acc.push(...curr.filter(x => !aliases.includes(x))); return acc; }, []);
-                temp = temp.filter(x => !!database.lookup.get(Math.min(x.length, 32)).get(x.slice(0, 32)));
+                temp = temp.filter(x => !!database.lookup.get(Math.min(x.length, maxSize[collection])).get(x.slice(0, maxSize[collection])));
                 temp = temp.map(x => x + alias_full.slice(x.length))
                 temp = temp.filter(x => !transpositions.has(x))
                 visited.add(aliases[a]);
@@ -153,35 +154,8 @@ function getTranspositions(aliases, transpositions, visited, currMoveLength, mov
     if (aliases.reduce((acc, curr) => acc.length > curr.length ? acc : curr, aliases[0]).length > 8) {
         return new ScheduledTask(getTranspositions, [aliases, transpositions, visited, currMoveLength, moves]);
     } else {
-        let ranges = [];
-
         localDirectory.transpositions = [...transpositions];
-        let timeout;
-        if (document.directory.indexStep > 0) {
-            timeout = 4000;
-        }
-        else {
-            timeout = 1000;
-        }
         return new ScheduledTask(getSearchRanges, [transpositions]).setSleep(10);
-    }
-}
-
-function checkForBoardUpdates(boards) {
-    if (!document.directory.updating) {
-        if (boards) {
-            // setTimeout(updateDatabase, 500, boards);
-
-        } else if (document.directory.nextBoards) {
-            if (document.directory.nextBoards.length == mainGame.boards.length)
-                setTimeout(updateDatabase, 500, document.directory.nextBoards);
-            else {
-                setTimeout(checkForBoardUpdates, 1000, mainGame.boards);
-            }
-        }
-    } else {
-        if (boards)
-            document.directory.nextBoards = boards;
     }
 }
 
@@ -287,6 +261,7 @@ document.directory.search.games = [];
 document.directory.search.cache = new MaxSizeMap(30);
 
 function getSearchRanges(transpositions) {
+    const collection = $("#collection").val();
     let ranges = [];
     let chunks = [];
     document.directory.search.games = [];
@@ -355,14 +330,14 @@ function getSearchRanges(transpositions) {
             requests.add([5000, Math.floor(ranges[r][2][0][1] / 5000)]);
         } else {
             const dist = ranges[r][1] - ranges[r][0];
-            let step = Math.min(2**dist.toString(2).length, 16);
+            let step = Math.min(2**dist.toString(2).length, maxSize[collection] / 2);
             requests.add([step * 20000, Math.floor(ranges[r][0] / step)]);
             if ((step * Math.floor(ranges[r][0] / step)) + step < ranges[r][1])
                 requests.add([step * 20000, (Math.floor(ranges[r][0] / step) + 1)]);
         }
     }
     document.branches.branches = branches;
-    const timeout = [...requests].some(x => !document.directory.search.cache.has(x)) ? 1000 : 0;
+    const timeout = [...requests].some(x => !document.directory.search.cache.has(x)) ? 500 : 0;
     setTimeout((r) => pullGames(Array.from(r), $("#collection").val()), timeout, requests);
     return new ScheduledTask(gamesObserver, [requests.size]).setSleep(5);
 }
@@ -417,6 +392,7 @@ function sortGames() {
         else
             return criteria[1] == "Dsc" ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);});
     $("#games-container").empty();
+    displayGame(['','','','Loading Games...','This may take a second.','','','','','','','','',''], null);
     return new ScheduledTask(addToDirectory, [0]);
 }
 
