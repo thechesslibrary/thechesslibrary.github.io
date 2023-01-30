@@ -464,3 +464,48 @@
   flex-direction: column;
   font-weight: 100;
 }
+
+#modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 10;
+}
+  
+#modal-content {
+    position: absolute;
+    width: 20%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: var(--background);
+    padding: 20px;
+    text-align: center;
+    -webkit-transform: translate(-50%, -50%);
+    -moz-transform: translate(-50%, -50%);
+    -ms-transform: translate(-50%, -50%);
+    -o-transform: translate(-50%, -50%);
+}
+#modal-content p {
+  color: white;
+  font-size: 1.25em;
+  font-family: 'Ubuntu', sans-serif;
+}
+#modal-content button {
+  font-family: Arial;
+  padding: 0.5em 1em;
+  font-size: 1em;
+  font-weight: 700;
+  background-color: var(--dark-square);
+  border: none;
+  color: black;
+  margin-right: 10px;
+  cursor: pointer;
+}
+#modal-content .copy-btn {
+    background-color: var(--light-square);
+    color:black;
+}

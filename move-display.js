@@ -2,71 +2,32 @@
 
 $(document).ready(() => {
     $("#move-branches").empty();
-    for (let i = 0; i < 25; i++)
+    for (let i = 0; i < 20; i++)
         createBranch(i, null, null, null, null, null);
-        document.branches = {};
-        document.branches.upToDate = true;
-        document.branches.branches = {};
-        document.branches.totalGames = 0;
-        document.branches.step = 0;
+    document.branches = {};
+    document.branches.upToDate = true;
+    document.branches.branches = {};
+    document.branches.totalGames = 0;
+    document.branches.step = 0;
 });
 var hover = null;
-setInterval(() => {
-    if (!document.branches.upToDate) {
-        for (let i = 0; i < 25; i++) {
+
+function updateBranches() {
+    const sortedBranches = Object.entries(document.branches.branches).sort((a, b) => b[1][0]- a[1][0]);
+    const gameCount = Object.entries(document.branches.branches).reduce((acc, curr) => acc + curr[1][1] + curr[1][2] + curr[1][3], 0);
+    for (let i = 0; i < 20; i++) {
+        const branch = sortedBranches[i];
+        if (branch) {
+            const total = branch[1][1] + branch[1][2] + branch[1][3];
+            const white = branch[1][1] / total * 100;
+            const black = branch[1][2] / total * 100;
+            const draw = branch[1][3] / total * 100;
+            updateBranch(i, scanToAlgebraic(b64FourChrToInt(branch[0])), white, draw, black, total / gameCount * 100, 'visible');
+        } else {
             updateBranch(i, null);
         }
-        document.branches = {};
-        document.branches.branches = {};
-        document.branches.totalGames = 0;
-        document.branches.step = 0;
-        document.branches.upToDate = true;
-
-    } else {
-        if (document.directory.indexes.length > 0) {
-            let i = 100;
-            while (i > 0 && document.directory.indexes.length - 1> document.branches.step) {
-                let game = database.data.at(document.directory.indexes.at(document.branches.step));
-                // console.log(game[9])
-                if (game) {
-                    let move = game[9].slice(mainGame.currentBoard * 4, (mainGame.currentBoard + 1) * 4);
-                    if (move) {
-                        move = scanToAlgebraic(b64FourChrToInt(move));
-                        // console.log(move);
-                        const branch = document.branches.branches[move];
-                        if (branch) {
-                            branch[game[10]]++;
-                            branch.total++;
-                        } else {
-                            document.branches.branches[move] = {'1-0': 0, '0-1': 0, '1/2-1/2': 0, 'total': 1, "": 0};
-                            document.branches.branches[move][game[10]]++;
-                        }
-                        document.branches.totalGames++;
-                    }
-                    document.branches.step++;
-                } else {
-                    i = 0;
-                }
-                i--;
-                
-            }
-            const sortedBranches = Object.entries(document.branches.branches).sort((a, b) => b[1].total - a[1].total);
-            for (let i = 0; i < 25; i++) {
-                const branch = sortedBranches[i];
-                if (branch) {
-                    const total = branch[1].total - branch[1][""];
-                    const white = branch[1]['1-0'] / total * 100;
-                    const draw = branch[1]['1/2-1/2'] / total * 100;
-                    const black = branch[1]['0-1'] / total * 100;
-                    updateBranch(i, branch[0], white, draw, black, total / document.branches.totalGames * 100, 'visible');
-                } else {
-                    updateBranch(i, null);
-                }
-            }
-        }
     }
-}, 2000);
-
+}
 
 function createBranch(id, move, white, draw, black, percentage, visibility='visible') {
     const $move = $('<p class="branch text no-left-padding"></p>').text(move);
@@ -97,6 +58,10 @@ function updateBranch(id, move, white=0, draw=100, black=0, percentage=0, visibi
 }
 
 $(document).on("boards-update", (event, hoverGame = null) => {
+    updateMoves(event.detail.allBoards, event.detail.currentBoard);
+});
+
+$(document).on("ply-update", (event, hoverGame = null) => {
     updateMoves(event.detail.allBoards, event.detail.currentBoard);
 });
 
@@ -145,12 +110,12 @@ function scanToAlgebraic(num) {
 }
 
 function updateMoves(boards, currentBoard) {
+    // console.log(boards, currentBoard, document.directory.search.games[hover][10])
     $(".moves-block").empty();
     let moveClass = "";
     let newHoverBoards = [];
-    if (hover && hover < database.data.length && hover > 0) {
-        let hoverBoards = database.data[hover][9];
-        // console.log(hoverBoards, currentBoard)
+    if (!Object.is(hover, null) && hover < document.directory.search.games.length && hover >= 0) {
+        let hoverBoards = document.directory.search.games[hover][10];
         hoverBoards = hoverBoards.slice(currentBoard * 4, hoverBoards.length);
         let move = 0;
         let halfMoves = currentBoard + 1;

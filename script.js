@@ -1,5 +1,3 @@
-// Note: every use of the word "scan" in this document refers to the ChessScan notation method, as outlined in the root directory.
-
 const canvas = document.getElementById('chessboard');
 const ctx = canvas.getContext('2d');
 const CANVAS_SIZE = 800;
@@ -588,6 +586,8 @@ class Game {
         this.allValidMoves = [];
         this.promotionTuple = [null, null];
         this.currentBoard = 0;
+        this.queuedBoards = null;
+        this.presentBoards = null;
     }
 
     reset() {
@@ -684,8 +684,16 @@ class Game {
         this.currentBoard = currRemembered;
     }
 
-    broadcastBoards() {
-        document.dispatchEvent(new CustomEvent("boards-update", {detail: {boards: this.boards.slice(0, this.currentBoard + 1), currentBoard: this.currentBoard, allBoards: this.boards}}));
+    broadcastBoards(queued=true) {
+        if (queued) {
+            document.dispatchEvent(new CustomEvent("ply-update", {detail: {boards: this.boards.slice(0, this.currentBoard + 1), currentBoard: this.currentBoard, allBoards: this.boards}}));
+            this.presentBoards = {boards: this.boards.slice(0, this.currentBoard + 1), currentBoard: this.currentBoard, allBoards: this.boards};
+            this.queuedBoards = null;
+        } else {
+            document.dispatchEvent(new CustomEvent("boards-update", {detail: {boards: this.boards.slice(0, this.currentBoard + 1), currentBoard: this.currentBoard, allBoards: this.boards}}));
+            this.presentBoards = null;
+            this.queuedBoards = null;
+        }
     }
 
     getMoveObjectIfValid(origin, destination) {
@@ -1205,25 +1213,32 @@ function getValidMoves(startingSquare, board, kingCapturable=false) {
     return validMoves; // returns an array of {square: int, board: Board} objects
 }
 
-let frame = 0;
+let broadcastTimer = 0;
+let broadcastSpeed = 500;
 
 let mouseDownFrames = 0;
 let mouseDown = false;
 let mousePos = [0, 0];
 
 const DEFAULT_BOARD = generateBoardFromSprites(pieceQueue, {'W': 3, 'B': 3}, 0, 0, []);
-let currFrame = 0;
-let debugSpeed = 100;
 
 let remove = null;
 var mainGame = new Game([DEFAULT_BOARD])
 document.switchToGame = -1;
 
 function animate() {
-    // frame++;
-    if (frame % debugSpeed == 0) {
-        globalScale = canvas.offsetWidth / 800;
-        globalTranslate = (400 - (canvas.offsetWidth / 2))*(1/globalScale);
+    if (mainGame.presentBoards) {
+        if (!mainGame.queuedBoards) {
+            mainGame.queuedBoards = mainGame.presentBoards;
+            if ($("#games-container")[0].childElementCount != 0)
+                document.dispatchEvent(new CustomEvent("stop-directory"));
+            broadcastTimer = 0;
+        } else {
+            if (broadcastTimer >= broadcastSpeed) {
+                mainGame.broadcastBoards(queued=false);
+            }
+        }
+        broadcastTimer++;
     }
     const SQ_COLORS = [LIGHT_SQUARE_COLOR, DARK_SQUARE_COLOR];
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
@@ -1254,6 +1269,10 @@ function animate() {
     }
     if (mouseDown) {
         mouseDownFrames++;
+        if (mouseDownFrames == 5) {
+            globalScale = canvas.offsetWidth / 800;
+            globalTranslate = (400 - (canvas.offsetWidth / 2))*(1/globalScale);
+        }
         if (!promotionMode) {
             if ((mouseDownFrames > 0 || mouseDownFrames < 7) && pieceQueue.filter(p => p.movable).length == 0) {
                 let sq = Math.floor(mousePos[0] / 100) + Math.floor(mousePos[1] / 100) * 8;
@@ -1302,7 +1321,8 @@ function animate() {
         }
     
     if (document.switchToGame != -1) {
-        mainGame.switchToGame(database.data[document.switchToGame][9]);
+        mainGame.switchToGame(document.directory.search.games[document.switchToGame][10]);
+        document.dispatchEvent(new CustomEvent("ply-update", {detail: {boards: mainGame.boards.slice(0, mainGame.currentBoard + 1), currentBoard: mainGame.currentBoard, allBoards: mainGame.boards}}));
         document.switchToGame = -1;
     }
     
@@ -1312,7 +1332,7 @@ function animate() {
     for (let arrow in arrowQueue) arrowQueue[arrow].draw(ctx);
     for (let sprite in dynamicQueue) dynamicQueue[sprite].draw(ctx);
     for (let overlay in overlayQueue) overlayQueue[overlay].draw(ctx);
-    if (animating || (!animating && dynamicQueue.length > 0 || true)) {
+    if (animating || (!animating && dynamicQueue.length > 0) || true) {
         requestAnimationFrame(animate);
     }
 }

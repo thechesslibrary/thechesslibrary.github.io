@@ -5,8 +5,8 @@ $(document).ready(() => {
     document.chessboardEnabled = false;
     // $(".games-container").empty();
     loadDatabase($("#collection").val());
-    $.get(prefix + 'lichess_broadcasts/transpositions.json', (t) => {
-        database.transpositions = JSON.parse(t);
+    $.get(prefix + 'transpositions.json', (t) => {
+        database.transpositions = t;
     });
     
 });
@@ -24,32 +24,17 @@ function loadDatabase(db) {
         $(".games-container").empty();
         displayGame(['','','','Loading Games...','This may take a second.','','','','','','','','',''], null)
         activeDatabase = db;
-        $.get(prefix + db + '/data.csv', (d) => {
-            database.data = $.csv.toArrays(d);
-            database.columns = database.data.shift();
-            $.get(prefix + db + '/indexes.json', (i) => {
-                database.indexes = JSON.parse(i);
-            }).done();
-            // $.get(prefix + db + '/transpositions.json', (t) => {
-            //     database.transpositions = t;});
-            $.get(prefix + db + '/ranges.json', (r) => {
-                r = JSON.parse(r);
-                database.rangeLookup = new Map();
+        $.get(prefix + db + '/lookups/lookups.json', (r) => {
+                database.lookup = new Map();
                 for (let moveLength of Object.keys(r)) {
-                    if (moveLength == "maxLength") {
-                        database.rangeLookup.set("maxLength", parseInt(r[moveLength]));
-                    } else {
-                        let lookup = new Map();
-                        for (const [move, range] of Object.entries(r[moveLength])) {
-                            lookup.set(move, [parseInt(range[0]), parseInt(range[1])]);
-                        }
-                        database.rangeLookup.set(parseInt(moveLength), lookup);
+                    let section = new Map();
+                    for (const [move, data] of Object.entries(r[moveLength])) {
+                        section.set(move, [parseInt(data[0]), parseInt(data[1]), parseInt(data[2]), parseInt(data[3]), [parseInt(data[4][0]), parseInt(data[4][1])]]);
                     }
+                    database.lookup.set(parseInt(moveLength), section);
                 }
-            }).done(() => {mainGame.broadcastBoards(); document.directory.updating = false; document.chessboardEnabled = true; updateDatabase(mainGame.boards);}); //console.log(database);
+            }).done(() => {mainGame.broadcastBoards(); document.directory.updating = false; document.chessboardEnabled = true; prepareDirectory(mainGame.boards);}); //console.log(database);
             
-            // document.directory.updating = false;
-        }).done();
         
     }
     
@@ -100,32 +85,38 @@ const b64FourChrToInt = (str) => {
 $(document).on("boards-update", (event, boards) => {
     if (mainGame.currentBoard != 0)
         $(".banner-extra").css("visibility", "hidden");
-    checkForBoardUpdates(event.detail.boards);
+    const task = new ScheduledTask(prepareDirectory, [event.detail.boards]).setLock(1).setNewSession(1).setSleep(10);
+    scheduler.force(task); // force will add the current token to the task, which will be carried down the task chain
 });
 
 $("#collection").on("change", () => {
     loadDatabase($("#collection").val());
+    scheduler.force(new ScheduledTask().setNewSession(1));
 });
 
 $("#Sort").on("change", () => {
     mainGame.broadcastBoards();
+    scheduler.force(new ScheduledTask().setNewSession(1));
+});
+
+$(document).on("stop-directory", () => {
+    scheduler.force(new ScheduledTask().setNewSession(1));
 });
 
 document.directory.nextBoards = [];
 
-function updateDatabase(boards) {
+function prepareDirectory(boards) {
+    $("#games-container").empty();
     if (boards.length > 60) {
         document.directory.upToDate = false;
         localDirectory.transpositions = [];
         return;
     }
     document.directory.updating = true;
-
     loadDatabase($("#collection").val());
     document.directory.nextBoards = null;
-    $(".games-container").empty();
     $("#number-of-games").text(0);
-    document.branches.upToDate = false;
+    // document.branches.upToDate = false;
     document.directory.upToDate = !document.directory.upToDate;
     boards = boards.slice(1);
     const moves = boards.reduce((acc, curr) => acc += intToB64FourChr(curr.scan), '')
@@ -135,17 +126,9 @@ function updateDatabase(boards) {
     let moveCount = 0;
     let currMoveLength = moves.length + 4;
     let visited = new Set();
-    if (moves == '') {
-        localDirectory.transpositions = [null];
-        document.directory.upToDate = false;
-        setTimeout(() => {//console.log('no longer document.directory.updating!'); 
-            document.directory.updating = false; checkForBoardUpdates()
-        }, 100);
-    }
-    getTranspositions(aliases, transpositions, visited, currMoveLength, moves);
+    return new ScheduledTask(getTranspositions, [aliases, transpositions, visited, currMoveLength, moves]).setSleep(5);
 }
 function getTranspositions(aliases, transpositions, visited, currMoveLength, moves) {
-    // console.time("getTranspositions");
     let remLength = aliases.length
     for (let a = 0; a < remLength; a++) {
         let alias = aliases[a];
@@ -154,7 +137,7 @@ function getTranspositions(aliases, transpositions, visited, currMoveLength, mov
         while (aliases[a].length > currMoveLength && alias.length > 8) {
             if (!visited.has(aliases[a])) {
                 let temp = database.transpositions[aliases[a].length].reduce((acc, curr) => { if (curr.includes(aliases[a])) acc.push(...curr.filter(x => !aliases.includes(x))); return acc; }, []);
-                temp = temp.filter(x => !!database.rangeLookup.get(Math.min(x.length, database.rangeLookup.get('maxLength'))).get(x.slice(0, database.rangeLookup.get('maxLength'))));
+                temp = temp.filter(x => !!database.lookup.get(Math.min(x.length, 32)).get(x.slice(0, 32)));
                 temp = temp.map(x => x + alias_full.slice(x.length))
                 temp = temp.filter(x => !transpositions.has(x))
                 visited.add(aliases[a]);
@@ -168,14 +151,11 @@ function getTranspositions(aliases, transpositions, visited, currMoveLength, mov
         currMoveLength -= 4;
     }
     if (aliases.reduce((acc, curr) => acc.length > curr.length ? acc : curr, aliases[0]).length > 8) {
-        setTimeout(getTranspositions, 3, aliases, transpositions, visited, currMoveLength, moves);
-        return;
+        return new ScheduledTask(getTranspositions, [aliases, transpositions, visited, currMoveLength, moves]);
     } else {
-        // console.log(transpositions)
         let ranges = [];
 
         localDirectory.transpositions = [...transpositions];
-        localDirectory.searchRange = [0, 100];
         let timeout;
         if (document.directory.indexStep > 0) {
             timeout = 4000;
@@ -183,18 +163,15 @@ function getTranspositions(aliases, transpositions, visited, currMoveLength, mov
         else {
             timeout = 1000;
         }
-        document.directory.upToDate = false;
-        setTimeout(() => {//console.log('no longer document.directory.updating!'); 
-            document.directory.updating = false; checkForBoardUpdates()
-        }, timeout);
-        return;
+        return new ScheduledTask(getSearchRanges, [transpositions]).setSleep(10);
     }
 }
 
 function checkForBoardUpdates(boards) {
     if (!document.directory.updating) {
         if (boards) {
-            setTimeout(updateDatabase, 500, boards);
+            // setTimeout(updateDatabase, 500, boards);
+
         } else if (document.directory.nextBoards) {
             if (document.directory.nextBoards.length == mainGame.boards.length)
                 setTimeout(updateDatabase, 500, document.directory.nextBoards);
@@ -208,178 +185,293 @@ function checkForBoardUpdates(boards) {
     }
 }
 
-let localDirectory = {};
-let searchForGamesRange = [null, null];
-document.directory.searchRange = [];
-document.directory.discoverRanges = [];
-document.directory.upToDate = false;
-document.directory.indexStep = 0;
-document.directory.indexes = [];
-function searchForGames(searchRange, calculationStep, upToDate) {
-    // console.log("searchForGames", searchRange, calculationStep, upToDate)
-    if (upToDate && !document.directory.upToDate)
-        return [[0, 0], 0, 0];
-    if (calculationStep == 0) {
-        document.branches.upToDate = false;
-        document.directory.indexStep = 0;
-        document.directory.searchRange = [];
-        if (localDirectory.transpositions && localDirectory.searchRange) {
-            document.directory.searchRange = localDirectory.searchRange;
-            document.directory.transpositions = localDirectory.transpositions;
-            document.directory.discoverRanges = [];
-            document.directory.upToDate = true;
-            return [localDirectory.searchRange, 1, upToDate];
-        } else {
-            return [[0, 0], 0, false];
-        }
+let scheduleStage = 0;
+
+class Scheduler {
+    constructor() {
+        this.cycleToken = this.generateToken();
+        this.tokenLocked = false;
+        this.lockRevisitDelay = 100;
     }
-    if (calculationStep == 1) { // calculate search ranges
-        document.directory.indexes = [];
-        let ranges = [];
-        const transpositions = document.directory.transpositions;
-        if (!transpositions[0] && mainGame.currentBoard == 0) {
-            document.directory.discoverRanges.push([0, database.data.length - 1]);
-            return [[0, 2000], 2, upToDate];
+    push(task, revisiting=false) {
+        // console.log(task.func, task.args, task.sleep, task.lock, task.newSession, revisiting);
+        if (task.token != this.cycleToken) return;
+        if (task.sleep > 0 && !revisiting) {
+            setTimeout(() => this.push(task, true), task.sleep);
+            return;
         }
-        let [searchStart, searchEnd] = [searchRange[0], Math.min(searchRange[1], transpositions.length)];
-        if (searchStart < transpositions.length) {
-            transpositions.slice(searchStart, searchEnd).map(t => {
-                if (database.rangeLookup.get(t.length)) {
-                    const range = database.rangeLookup.get(t.length).get(t);
-                    if (range) ranges.push(range);
-                    // console.log(database.rangeLookup.get(t.length).get(t));
-                } else {
-                    const maxLength = database.rangeLookup.get('maxLength');
-                    let range = database.rangeLookup.get(maxLength).get(t.slice(0, maxLength));
-                    if (range) {
-                        range[1]++;
-                        const idx1 = database.data.slice(...range).findIndex(x => x[9].startsWith(t));
-                        const idx2 = database.data.slice(...range).findLastIndex(x => x[9].startsWith(t));
-                        if (idx1 != -1 && idx2 != -1)
-                            ranges.push([idx1 + range[0], idx2 + range[0]])
-                    }
-                }
-            });
-            searchStart = searchEnd;
-            searchEnd += 100;
-            if (transpositions.length < 90) {
-                [searchStart, searchEnd] = [0, 2000];
-                calculationStep++;
-            }
-        } else {
-            searchStart = 0;
-            searchEnd = 2000;
-            calculationStep++;
+        if (this.tokenLocked) {
+            setTimeout(() => this.push(task, true), this.lockRevisitDelay);
+            return;
         }
-        if (upToDate) {
-            document.directory.discoverRanges.push(...ranges);
-            if (document.directory.discoverRanges.length == 0) {
-                $(".games-container").empty();
-                $("#number-of-games").text(0);
-                document.branches.upToDate = false;
-                return [[0, 0], 0, 0];
-            }
-            return [[searchStart, searchEnd], calculationStep, upToDate];
-        } else {
-            // clear directory
-            return [[0, 100], 0, 0];
+        if (task.startNewSession) {
+            this.cycleToken = this.generateToken();
+            task.token = this.cycleToken;
+            console.log("new session", this.cycleToken);
         }
-    } else if (calculationStep == 2) { // search for games
-        let indexes = [];
-        const criteria = [$("#Sort").val().slice(0, -3), $("#Sort").val().slice(-3)];
-        // console.log("checkRange", searchRange)
-        if (criteria[0]) {
-            let [discoverStart, discoverEnd] = [searchRange[0], Math.min(searchRange[1], database.data.length)];
-            const valueRanges = document.directory.discoverRanges;
-            if (valueRanges.reduce((a, b) => a + b[1] - b[0], 0) < 150) {
-                discoverEnd = database.data.length - 1;
-                calculationStep++;
-            }
-            if (discoverStart < database.data.length) {
-                if (criteria[1] == 'Asc') {
-                    [discoverStart, discoverEnd] = [database.data.length - discoverEnd, database.data.length - discoverStart];
-                }
-                indexes = database.indexes[criteria[0]].slice(discoverStart, discoverEnd).filter((x) => valueRanges.filter(r => r[0] <= x && x <= r[1]).length > 0);
-                if (criteria[1] == 'Asc') indexes = indexes.reverse();
-                if (document.directory.updating) {
-                    searchRange[1] += 500;
-                    if (searchRange[1] - searchRange[0] > 1000) {
-                        searchRange[0] += 2000;
-                    } else {
-                        searchRange[0] += 500;
-                    }
-                } else {
-                    searchRange[1] += 2000;
-                    if (searchRange[1] - searchRange[0] > 1000) {
-                        searchRange[0] += 2000;
-                    } else {
-                        searchRange[0] += 500;
-                    }
-                }
-            } else {
-                calculationStep++;
-            }
+        if (task.lock) {
+            this.tokenLocked = true;
         }
-        if (upToDate) {
-            // if (document.directory.indexes.reduce ...)
-            document.directory.indexes.push(...indexes);
-            document.branches.upToDate = true;
-            if (document.directory.indexStep < 150 && document.directory.indexes.length > document.directory.indexStep) {
-                if (document.directory.indexStep == 0) $(".games-container").empty();
-                for (let i = 0; i < 25; i++) {
-                    if (document.directory.indexStep < document.directory.indexes.length) {
-                        displayGame(database.data[document.directory.indexes[document.directory.indexStep]], document.directory.indexes[document.directory.indexStep]);
-                        document.directory.indexStep++;
-                    }
-                }
-            }
-            return [searchRange, calculationStep, upToDate];
-        } else {
-            // console.log("Not up to date!");
-            return [[0, 2000], 0, 0];
-        }
-    } else if (calculationStep == 3) { // done searching; rest
-        if (!upToDate)
-            return [[0, 0], 0, 0];
-        return [searchRange, calculationStep, 0];
+        task.execute().then((chainedTaskData) => {
+            if (task.lock)
+                this.unlock();
+            if (!chainedTaskData) return;
+            let chainedTask = chainedTaskData.task;
+            let chainedToken = chainedTaskData.token;
+            chainedTask.setToken(chainedToken);
+            this.push(chainedTask);
+        });
+    }
+    generateToken() {
+        return Math.random().toString(16).slice(2);
+    }
+    unlock () {
+        this.tokenLocked = false;
+    }
+    force(task) {
+        task.token = this.cycleToken;
+        this.push(task);
     }
 }
 
-let loopRange = [0, 0];
-let loopStep = 0;
-let loopNull;
-setInterval(() => {
-    [loopRange, loopStep, loopNull] = searchForGames(loopRange, loopStep, document.directory.upToDate);
-}, 450);
+class ScheduledTask {
+    constructor(func=null, args=[], token=null, lock=false, startNewSession=false, sleep=10) {
+        this.token = token;
+        this.startNewSession = startNewSession;
+        this.sleep = sleep;
+        this.func = func ? func : () => { };
+        this.args = args;
+        this.lock = lock;
 
-setInterval(() => {
-    if (mainGame.currentBoard == 0) {
-        $("#number-of-games").text(database.data.length.toLocaleString());
-        return;
     }
-    if (document.directory.indexes.length > 0) {
-        const idxl = document.directory.indexes.length;
-        const nog = parseInt($("#number-of-games").text().replace(',', ''));
-        if (idxl - nog > 10)
-            $("#number-of-games").text(Math.round(nog + ((idxl - nog) / 5)).toLocaleString());
+    set(func, ...args) {
+        this.func = func;
+        this.args = args;
+        return this;
+    }
+    setNewSession(bool) {
+        this.startNewSession = bool;
+        return this;
+    }
+    setLock(bool) {
+        this.lock = bool;
+        return this;
+    }
+    setSleep(ms) {
+        this.sleep = ms;
+        return this;
+    }
+    setToken(token) {
+        this.token = token;
+        return this;
+    }
+    execute() {
+        return new Promise((resolve, reject) => {
+            const res = this.func(...this.args);
+            if (res instanceof ScheduledTask) {
+                resolve({"task": res, "token": this.token});
+            }
+            resolve(null);
+        });
+    }
+}
+
+let scheduler = new Scheduler();
+let localDirectory = {};
+let searchForGamesRange = [null, null];
+document.directory.indexStep = 0;
+document.directory.indexes = [];
+document.directory.search = {};
+document.directory.search.temp = [];
+document.directory.search.games = [];
+document.directory.search.cache = new MaxSizeMap(30);
+
+function getSearchRanges(transpositions) {
+    let ranges = [];
+    let chunks = [];
+    document.directory.search.games = [];
+    for (let t of transpositions) {
+        const stub = t.slice(0, 40);
+        if (database.lookup.has(stub.length)) {
+            const info = database.lookup.get(stub.length).get(stub);
+            if (info) {
+                let range = [Math.floor(info[4][0] / 5000), Math.floor(info[4][1] / 5000), []];
+                range = ranges.find(r => r[0] === range[0] && r[1] === range[1]) ? null : range;
+                if (range) {
+                    if (range[0] == range[1]) {
+                        if (!chunks.includes(range[0])) {
+                            chunks.push(range[0]);
+                        }
+                    } else {
+                        let range = [Math.floor(info[4][0] / 20000), Math.floor(info[4][1] / 20000), []];
+                        const rightExtend = ranges.findIndex(x => range[0] >= x[0] - 1 && range[1] <= x[1] + 1 && range[1] >= x[1]);
+                        const leftExtend = ranges.findIndex(x => range[0] >= x[0] - 1 && range[1] <= x[1] + 1 && range[0] <= x[0]);
+                        const center = ranges.findIndex(x => range[0] >= x[0] && range[1] <= x[1]);
+                        if (rightExtend != -1) {
+                            ranges[rightExtend][1] = range[1];
+                            ranges[rightExtend][2].push(info[4]);
+                        }
+                        if (leftExtend != -1) {
+                            ranges[leftExtend][0] = range[0];
+                            ranges[leftExtend][2].push(info[4]);
+                        }
+                        if (rightExtend == -1 && leftExtend == -1 && center == -1) {
+                            range[2].push(info[4]);
+                            ranges.push(range);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let branches = {};
+    transpositions = Array.from(transpositions);
+    if (transpositions && transpositions.at(0).length <= 36) {
+        let moveLength = transpositions.at(0).length;
+        branches = [...database.lookup.get(moveLength + 4).entries()].reduce((acc, curr) => {
+            [curr, data] = curr
+            if (transpositions.includes(curr.slice(0, moveLength))) {
+                const move = curr.slice(moveLength, moveLength + 4);
+                if (move in acc) {
+                    acc[move][0] += data[0];
+                    acc[move][1] += data[1];
+                    acc[move][2] += data[2];
+                    acc[move][3] += data[3];
+                } else {
+                    acc[move] = data.slice(0, 4);
+                }
+            }
+            return acc;
+        }, {})
+    }
+    let requests = new Set();
+    chunks.forEach(c => requests.add([5000, c]));
+    document.directory.transpositions = transpositions;
+    for (let r in ranges) {
+        if (ranges[r][0] == ranges[r][1]) {
+            requests.add([20000, ranges[r][0],]);
+        } else if (ranges[r][2][0][1] - ranges[r][2][0][0] < 5000) {
+            requests.add([5000, Math.floor(ranges[r][2][0][0] / 5000)]);
+            requests.add([5000, Math.floor(ranges[r][2][0][1] / 5000)]);
+        } else {
+            const dist = ranges[r][1] - ranges[r][0];
+            let step = Math.min(2**dist.toString(2).length, 16);
+            requests.add([step * 20000, Math.floor(ranges[r][0] / step)]);
+            if ((step * Math.floor(ranges[r][0] / step)) + step < ranges[r][1])
+                requests.add([step * 20000, (Math.floor(ranges[r][0] / step) + 1)]);
+        }
+    }
+    document.branches.branches = branches;
+    const timeout = [...requests].some(x => !document.directory.search.cache.has(x)) ? 1000 : 0;
+    setTimeout((r) => pullGames(Array.from(r), $("#collection").val()), timeout, requests);
+    return new ScheduledTask(gamesObserver, [requests.size]).setSleep(5);
+}
+var test = 0;
+
+function gamesObserver(count) {
+    if (document.directory.search.temp.length != count) {
+        return new ScheduledTask(gamesObserver, [count]).setSleep(5);
+    } else {
+        return new ScheduledTask(sortGames, []);
+    }
+}
+
+function pullGames(requests, database) {
+    const criteria = [$("#Sort").val().slice(0, -3), $("#Sort").val().slice(-3)];
+    document.directory.search.temp = [];
+    $.each(requests, (i, r) => {
+        let location;
+        if (r[0] == 5000)
+            location = `${prefix}${database}/chunks/${zfill(r[1])}.csv`;
         else
-            $("#number-of-games").text(idxl.toLocaleString());}
-}, 75);
-// document.hoverGame = -1;
+            location = `${prefix}${database}/sorted/${criteria[0]}/${criteria[1]}/${r[0]}/${zfill(r[1])}.csv`;
+        games = document.directory.search.cache[r.toString()]
+        if (games) {
+            document.directory.search.temp.push(games);
+            console.log(`cache hit ${location}`)
+            return;
+        } else {
+        $.when($.get(location)).done(games => {
+                console.log(`cache miss ${location}`)
+                const arr = $.csv.toArrays(games).slice(1, -1);
+                document.directory.search.cache[r.toString()] = arr;
+                document.directory.search.temp.push(arr);
+            });
+        }
+    });
+}
+
+function sortGames() {
+    document.directory.search.games = document.directory.search.temp.flat();
+    document.directory.search.temp = [];
+    if (document.directory.transpositions.length == 0) return;
+    const moveLength = document.directory.transpositions.at(0).length;
+    document.directory.search.games = [...new Set(document.directory.search.games)].filter(g => document.directory.transpositions.includes(g[10].slice(0, moveLength)));
+    const columns = ["index","StudyID","Event","Date","White","Black","WhiteElo","BlackElo","WhiteTitle","BlackTitle","Moves","Result","Site","Termination","TimeControl"];
+    const criteria = [$("#Sort").val().slice(0, -3), $("#Sort").val().slice(-3)];
+    document.directory.search.games.sort((a, b) => {
+        const aVal = a.at(columns.indexOf($("#Sort").val().slice(0, -3)));
+        const bVal = b.at(columns.indexOf($("#Sort").val().slice(0, -3)));
+        if (["WhiteElo", "BlackElo"].includes(criteria[0]))
+            return criteria[1] == "Dsc" ? bVal - aVal : aVal - bVal;
+        else
+            return criteria[1] == "Dsc" ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);});
+    $("#games-container").empty();
+    return new ScheduledTask(addToDirectory, [0]);
+}
+
+function addToDirectory(idx) {
+    if (idx == 0) {
+        $("#games-container").empty();
+        updateBranches();
+        if (!Object.keys(document.branches.branches).length) {
+            let moveLength = document.directory.transpositions.at(0).length;
+            document.branches.branches = document.directory.search.games.reduce((acc, curr) => {
+                [curr, result] = [curr[10], curr[11]];
+                const move = curr.slice(moveLength, moveLength + 4);
+                const resultArr = ["", "1-0", "0-1", "1/2-1/2"]
+                if (move in acc) {
+                    acc[move][0]++;
+                    acc[move][resultArr.indexOf(result)]++;
+                } else {
+                    acc[move] = [1, 0, 0, 0]
+                    acc[move][resultArr.indexOf(result)]++;
+                }
+                
+                return acc;
+        }, {})}
+        updateBranches();
+
+        let gameCount = document.directory.transpositions.reduce((acc, curr) => {
+                return acc + (database.lookup.has(curr.length) ? parseInt(database.lookup.get(curr.length).get(curr)) : 0);
+            }, 0)
+        gameCount = gameCount > 0 ? gameCount :  Object.entries(document.branches.branches).reduce((acc, curr) => acc + curr[1][1] + curr[1][2] + curr[1][3], 0);
+        $("#number-of-games").text(gameCount.toLocaleString());
+    }
+    displayGame(document.directory.search.games.at(idx), idx);
+    // updateBranches(document.directory.search.games.at(idx));
+    return new ScheduledTask(addToDirectory, [idx + 1]).setSleep(50);
+}
+
+function zfill(num, size=6) {
+    return num.toString().padStart(size, 0)
+}
+
 function displayGame(arr, idx=-1) {
+    if (!arr) return;
     const num = idx;
-    const color = arr[10] == "1-0" ? "white-border" : arr[10] == "0-1" ? "black-border" : "";
+    const color = arr[11] == "1-0" ? "white-border" : arr[11] == "0-1" ? "black-border" : "";
     let $gameContainer = $(`<div class="game-container ${color}"></div>`);
-    const round = ['world_championships','candidates','interzonals'].includes($("#collection").val()) ? ` Rd. ${arr[0]}` : ''
-    let $event = $('<p class="event-date-result"></p>').text(arr[1] + round);
-    let $dateAndResult = $('<p class="event-date-result date-result"></p>').text(arr[2] + " \xa0 •\xa0  " + arr[10]);
-    let $whiteTitle = $('<p class="title"></p>').text(arr[7]);
-    let $whitePlayer = $('<p class="player"></p>').text(arr[3]);
-    let $whiteRating = arr[5] ? $('<p class="rating"></p>').text('(' + arr[5] + ')') : $('<p class="rating"></p>')
+    const round = ['world_championships','candidates','interzonals'].includes($("#collection").val()) ? ` Rd. ${arr[1]}` : ''
+    let $event = $('<p class="event-date-result"></p>').text(arr[2] + round);
+    let $dateAndResult = $('<p class="event-date-result date-result"></p>').text(arr[3] + " \xa0 •\xa0  " + arr[11]);
+    let $whiteTitle = $('<p class="title"></p>').text(arr[8]);
+    let $whitePlayer = $('<p class="player"></p>').text(arr[4]);
+    let $whiteRating = arr[6] != 0 ? $('<p class="rating"></p>').text('(' + arr[6] + ')') : $('<p class="rating"></p>')
     let $linebreak = $('<br>');
-    let $blackTitle = $('<p class="title black"></p>').text(arr[8]);
-    let $blackPlayer = $('<p class="player black"></p>').text(arr[4]);
-    let $blackRating = arr[6] ? $('<p class="rating black"></p>').text('(' + arr[6] + ')') : $('<p class="rating black"></p>')
+    let $blackTitle = $('<p class="title black"></p>').text(arr[9]);
+    let $blackPlayer = $('<p class="player black"></p>').text(arr[5]);
+    let $blackRating = arr[7] != 0 ? $('<p class="rating black"></p>').text('(' + arr[7] + ')') : $('<p class="rating black"></p>')
     $gameContainer.append($event)
         .append($dateAndResult)
         .append($whiteTitle)
@@ -390,7 +482,7 @@ function displayGame(arr, idx=-1) {
         .append($blackPlayer)
         .append($blackRating)
     if (idx != null) {
-    $gameContainer.mouseenter(() => { document.dispatchEvent(new CustomEvent("gameHover", { detail: num })) })
+    $gameContainer.mouseenter(() => { document.dispatchEvent(new CustomEvent("gameHover", { detail: num})) })
         .mouseleave(() => { document.dispatchEvent(new CustomEvent("gameUnhover")) })
         .click(() => { document.switchToGame = num; setSelectedGame(num); });}
     $(".games-container").append($gameContainer);
@@ -401,27 +493,24 @@ function setSelectedGame(idx) {
     if (idx == -1) {
         $(".selected-game-container").css({ "visibility": "collapse", "height": "0" })
     } else {
-        let game = database.data[idx];
-        $(".selected-game-text.players").text(`${game[3]} - ${game[4]} `);
-        let year = game[2].slice(0, 4);
+        if (idx > document.directory.search.games.length - 1) return;
+        let game =  document.directory.search.games[idx];
+        $(".selected-game-text.players").text(`${game[4]} - ${game[5]} `);
+        let year = game[3].slice(0, 4);
         $(".selected-game-text.year").text(`(${year})`);
-        const event = game[1].length > 1 ? game[1].endsWith('.') ? `${game[1]} ` : `${game[1]}.` : ''
+        const event = game[2].length > 1 ? game[1].endsWith('.') ? `${game[1]} ` : `${game[1]}.` : ''
         $(".selected-game-text.event").text(`${event} `);
-        const site = game[11].length > 1 ? `${game[11]}. ` : '';
-        $(".selected-game-text.result").text(`${site}${game[10]}.`);
+        const site = game[12].length > 1 ? `${game[12]}. ` : '';
+        $(".selected-game-text.result").text(`${site}${game[11]}.`);
         $(".selected-game-container").css({ "visibility": "visible", "height": "auto" });
-        let month = game[2].slice(5, 7);
-        let day = game[2].slice(8, 10);
+        let month = game[3].slice(5, 7);
+        let day = game[3].slice(8, 10);
         let month2 = month == 12 ? 1 : parseInt(month) + 1;
         let year2 = month2 == 1 ? parseInt(year) + 1 : year;
         $(".youtube-icon").unbind("click");
         $(".export-icon.normal").unbind("click");
         $(".export-icon.blue-filter").unbind("click");
         $(".youtube-icon").click(() => { document.dispatchEvent(new CustomEvent(`icon-click`, {detail: {'icon': 'youtube', 'database': $("#collection").val(), 'game': game}})) });
-        // if (['titled_arena','titled_tuesday'].includes($("#collection").val()))
-        //     $(".youtube-icon").css({ "visibility": "hidden"});
-        // else
-        //     $(".youtube-icon").css({ "visibility": "visible"});
         $(".export-icon.normal").click(() => { document.dispatchEvent(new CustomEvent(`icon-click`, {detail: {'icon': 'pgn', 'database': $("#collection").val(), 'game': game}})) });
         $(".export-icon.blue-filter").click(() => { document.dispatchEvent(new CustomEvent(`icon-click`, {detail: {'icon': 'display-game', 'database': $("#collection").val(), 'game': game}})) });
     }
@@ -433,66 +522,83 @@ $(document).on("icon-click", (event) => {
         case "youtube":
             switch (event.detail.database) {
                 case "world_championships":
-                    window.open(`https://www.youtube.com/results?search_query=${game[1]}+game+${game[0]}`);
-                    // window.open(`https://www.google.com/search?q=${game[3]}+${game[4]}+${event}+round+${game[0]}+&tbs=cdr:1,cd_min:${month}/${day}/${year},cd_max:${month2}/${day}/${year2}&tbm=vid`) })
+                    window.open(`https://www.youtube.com/results?search_query=${game[2]}+game+${game[1]}`);
                     break;
                 case "candidates":
-                    window.open(`https://www.youtube.com/results?search_query=${game[1]}+game+${game[0]}+${game[3]}+${game[4]}`);
+                    window.open(`https://www.youtube.com/results?search_query=${game[2]}+game+${game[1]}+${game[4]}+${game[5]}`);
                     break;
                 case "interzonals":
-                    window.open(`https://www.youtube.com/results?search_query=${game[1]}+${game[2].splice(0, 4)}+game+${game[0]}+${game[3]}+${game[4]}`);
+                    window.open(`https://www.youtube.com/results?search_query=${game[2]}+${game[3].splice(0, 4)}+game+${game[1]}+${game[4]}+${game[5]}`);
                     break;
                 case "tcec":
-                    window.open(`https://www.youtube.com/results?search_query=${game[1]}+${game[3]}+${game[4]}`);
+                    window.open(`https://www.youtube.com/results?search_query=${game[2]}+${game[4]}+${game[5]}`);
                     break;
                 case "lichess_broadcasts":
-                    window.open(`https://www.youtube.com/results?search_query=${game[1]}+${game[3]}+${game[4]}`);
+                    window.open(`https://www.youtube.com/results?search_query=${game[2]}+${game[4]}+${game[5]}`);
             }
             break;
         case "pgn":
             let pgn = "";
-            pgn += `[Event "${game[1]}"]\n`;
+            pgn += `[Event "${game[2]}"]\n`;
             if (["candidates", "world_championships", "interzonals"].includes($("#collection").val()))
-                pgn += `[Round "${game[0]}"]\n`;
-            pgn += `[Date "${game[2]}"]\n`;
-            pgn += `[Site "${game[11]}"]\n`;
-            pgn += `[White "${game[3]}"]\n`;
-            pgn += `[Black "${game[4]}"]\n`;
-            pgn += `[Result "${game[10]}"]\n`;
-            pgn += `[WhiteElo "${game[5]}"]\n`;
-            pgn += `[BlackElo "${game[6]}"]\n`;
-            pgn += `[WhiteTitle "${game[7]}"]\n`;
-            pgn += `[BlackTitle "${game[8]}"]\n\n`;
-            for (let i = 0; i * 4 < game[9].length; i++)
+                pgn += `[Round "${game[1]}"]\n`;
+            pgn += `[Date "${game[3]}"]\n`;
+            pgn += `[Site "${game[12]}"]\n`;
+            pgn += `[White "${game[4]}"]\n`;
+            pgn += `[Black "${game[5]}"]\n`;
+            pgn += `[Result "${game[11]}"]\n`;
+            pgn += `[WhiteElo "${game[6]}"]\n`;
+            pgn += `[BlackElo "${game[7]}"]\n`;
+            pgn += `[WhiteTitle "${game[8]}"]\n`;
+            pgn += `[BlackTitle "${game[9]}"]\n\n`;
+            for (let i = 0; i * 4 < game[10].length; i++)
                 if (i % 2 == 0)
-                    pgn += `${i / 2 + 1}. ${scanToAlgebraic(b64FourChrToInt(game[9].slice(i * 4, i * 4 + 4)))} `;
+                    pgn += `${i / 2 + 1}. ${scanToAlgebraic(b64FourChrToInt(game[10].slice(i * 4, i * 4 + 4)))} `;
                 else
-                    pgn += `${scanToAlgebraic(b64FourChrToInt(game[9].slice(i * 4, i * 4 + 4)))} `;
-            pgn += game[10];
-            alert(pgn);
+                    pgn += `${scanToAlgebraic(b64FourChrToInt(game[10].slice(i * 4, i * 4 + 4)))} `;
+            pgn += game[11];
+            let $modal = $("<div>", {id: "modal"});
+            let $modalContent = $("<div>", {id: "modal-content"});
+            const $modalText = $("<p>").html(pgn.split("\n").join("<br>"));
+            const $closeBtn = $("<button>", {
+                text: "Close",
+                click: function() {
+                    $modal.fadeOut();
+                }
+            });
+            const $copyBtn = $("<button>", {
+                text: "Copy",
+                class: "copy-btn",
+                click: () => {
+                    navigator.clipboard.writeText(pgn);
+                }
+            });
+            $modalContent.append($modalText).append($copyBtn).append($closeBtn);
+            $modal.append($modalContent);
+            $("body").append($modal);
             break;
         case "display-game":
             switch (event.detail.database) {
                 case "world_championships":
-                    window.open(`https://www.google.com/search?q=${game[1]}+game+${game[0]}+site%3Achessgames.com`);
+                    window.open(`https://www.google.com/search?q=${game[2]}+game+${game[1]}+site%3Achessgames.com`);
                     break;
                 case "candidates":
                 case "interzonals":
-                    window.open(`https://www.google.com/search?q=${game[1]}+${game[4]}+site%3Achessgames.com`);
+                    window.open(`https://www.google.com/search?q=${game[2]}+${game[5]}+site%3Achessgames.com`);
                     break;
                 case "tcec":
                     window.open('https://tcec-chess.com/#x=archive');
                     break;
                 case "lichess_broadcasts":
-                    window.open(`https://lichess.org/study/${game[0]}`);
+                    window.open(`https://lichess.org/study/${game[1]}`);
                     break;
                 case "titled_arena":
-                    window.open(game.at(0) + `#${mainGame.currentBoard}`);
+                    window.open(game.at(1) + `#${mainGame.currentBoard}`);
                     break;
                 case "titled_tuesday":
-                    const month = game[2].slice(5, 7);
-                    const day = game[2].slice(8, 10);
-                    const year = game[2].slice(0, 4);
+                    const month = game[3].slice(5, 7);
+                    const day = game[3].slice(8, 10);
+                    const year = game[3].slice(0, 4);
                     window.open(`https://www.chess.com`);
                     break;
                 
