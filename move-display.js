@@ -45,16 +45,17 @@ function createBranch(id, move, white, draw, black, percentage, visibility='visi
 function updateBranch(id, move, white=0, draw=100, black=0, percentage=0, visibility='hidden') {
     let $branch = $(`.branch${id}`);
     if (!move) {
-        $branch.css('visibility', 'hidden');
+        $branch.css('visibility', 'collapse').css('display', 'none').css('height', '0px').css('min-height', '0px').css('padding-bottom', '0px');
         return;
     }
     $branch.find('.branch.text').text(move);
     $branch.find('.white-percentage').css('width', `${white}%`);
     $branch.find('.draw-percentage').css('width', `${draw}%`);
     $branch.find('.black-percentage').css('width', `${black}%`);
-    percnetage = Math.round(percentage)
+    percentage = Math.round(percentage)
     $branch.find('.branch.text.no-right-padding').text(`${Math.round(percentage)}%`);
-    $branch.css('visibility', visibility);
+    const display = visibility == 'hidden' ? 'none' : 'grid';
+    $branch.css('visibility', visibility).css('display', display).css('height', '10%').css('min-height', '10%').css('padding-bottom', '1.5%');
 }
 
 $(document).on("boards-update", (event, hoverGame = null) => {

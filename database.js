@@ -85,7 +85,7 @@ const b64FourChrToInt = (str) => {
 
 $(document).on("boards-update", (event, boards) => {
     if (mainGame.currentBoard != 0)
-        $(".banner-extra").css("visibility", "hidden");
+        $(".banner-extra").css("visibility", "collapse");
     const task = new ScheduledTask(prepareDirectory, [event.detail.boards]).setLock(1).setNewSession(1).setSleep(10);
     scheduler.force(task); // force will add the current token to the task, which will be carried down the task chain
 });
