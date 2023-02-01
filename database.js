@@ -34,7 +34,7 @@ function loadDatabase(db) {
                     }
                     database.lookup.set(parseInt(moveLength), section);
                 }
-            }).done(() => {mainGame.broadcastBoards(); document.directory.updating = false; document.chessboardEnabled = true; prepareDirectory(mainGame.boards);}); //console.log(database);
+            }).done(() => {mainGame.dispatchBoards(); document.directory.updating = false; document.chessboardEnabled = true; prepareDirectory(mainGame.boards);}); //console.log(database);
             
         
     }
@@ -96,7 +96,7 @@ $("#collection").on("change", () => {
 });
 
 $("#Sort").on("change", () => {
-    mainGame.broadcastBoards();
+    mainGame.dispatchBoards();
     scheduler.force(new ScheduledTask().setNewSession(1));
 });
 
