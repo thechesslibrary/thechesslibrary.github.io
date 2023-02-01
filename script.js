@@ -520,7 +520,7 @@ function animate() {
                     for (let v in validMoves) {
                         if (legalsEnabled) {
                             sq = board_flipped ? 63 - validMoves[v]["destination"] : validMoves[v]["destination"];
-                            dynamicQueue.push(new LegalIndicator(sq, mainGame.board()[validMoves[v].destination] != '' && mainGame.board()[validMoves[v].destination].toUpperCase() != 'X' , !validMoves[v].board.kingSafeOn(-1, pieceQueue.at(-1).color)));
+                            dynamicQueue.push(new LegalIndicator(sq, mainGame.board()[validMoves[v].destination] != '' && mainGame.board()[validMoves[v].destination].toUpperCase() != 'X' || (mainGame.board()[validMoves[v].destination].toUpperCase() == 'X' && mainGame.board()[validMoves[v].origin].toUpperCase() == 'P'), !validMoves[v].board.kingSafeOn(-1, pieceQueue.at(-1).color)));
                         }
                     }
                 }
