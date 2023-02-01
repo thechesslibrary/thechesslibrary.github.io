@@ -187,6 +187,18 @@ class BoardArrow extends Line{
  * @param {number} sq: square number (0-63)
 */
 class Piece extends Sprite {
+    constructor(piece, sq) {
+        let piece_png = Piece.PREFIX.concat(color(piece), piece.toUpperCase(), '.png', Piece.SUFFIX)
+        super(piece_png, 0, 0, Piece.PIECE_SIZE, Piece.PIECE_SIZE);
+        this.piece = piece;
+        this.color = color(piece);
+        this.sq = sq;
+        this.x = 0;
+        this.y = 0;
+        this.movable = false;
+        this.exists = true;
+        this.stun = 0;
+    }
     static get PREFIX() {return PIECES_PATH;}
     static get SUFFIX() {return PIECES_SUFFIX;}
     static get PIECE_SIZE() {return 100;}
@@ -220,18 +232,6 @@ class Piece extends Sprite {
             }
             sq++;
         }
-    }
-
-    constructor(piece, sq) {
-        let piece_png = Piece.PREFIX.concat(color(piece), piece.toUpperCase(), '.png', Piece.SUFFIX)
-        super(piece_png, 0, 0, Piece.PIECE_SIZE, Piece.PIECE_SIZE);
-        this.piece = piece;
-        this.color = color(piece);
-        this.sq = sq;
-        this.x = 0;
-        this.y = 0;
-        this.movable = false;
-        this.exists = true;
     }
     draw(ctx) {
         if (!this.exists)
@@ -349,20 +349,25 @@ class RenderGame extends Game {
     }
 
     back(n) {
+        super.back(n);
         pieceQueue = this.currentBoard > 0 ? generateSpritesFromBoard(this.board()) : Piece.loadFromFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
         arrowQueue = this.regenerateArrowQueue();
-        super.back(n);
     }
 
     forward(n) {
+        super.forward(n);
         pieceQueue = this.currentBoard > 0 ? generateSpritesFromBoard(this.board()) : Piece.loadFromFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
         arrowQueue = this.regenerateArrowQueue();
-        super.back(n);
+        
+    }
+
+    update(...params) {
+        super.update(...params);
+        arrowQueue = this.regenerateArrowQueue();
     }
 
     attempt(origin, destination) {
         const board = super.attempt(origin, destination);
-        if (board) arrowQueue = arrowsEnabled ? [new BoardArrow(origin, destination, 12.5, "round", [75, 75, 255], 1, 20)] : [];
         return board ? generateSpritesFromBoard(board) : pieceQueue;
     }
 
@@ -381,9 +386,12 @@ let broadcastSpeed = window.matchMedia("@media (min-width:480px)") ? 250 : 500;
 let mouseDownFrames = 0;
 let mouseDown = false;
 let mousePos = [0, 0];
+let lastMovable;
 
 const DEFAULT_BOARD = generateBoardFromSprites(pieceQueue, {'W': 3, 'B': 3}, 0, 0, []);
 
+let remove = null;
+var mainGame = new RenderGame([DEFAULT_BOARD]);
 function generateSpritesFromBoard(pieceArray) {
     let queue = [];
     for (let i = 0; i < pieceArray.length; i++) {
@@ -393,9 +401,6 @@ function generateSpritesFromBoard(pieceArray) {
     }
     return queue;
 }
-
-let remove = null;
-var mainGame = new RenderGame([DEFAULT_BOARD])
 mainGame.promotionCallback = (game, origin, destination) => {
     promotionMode = true;
     game.board().halfMoves++;
@@ -488,12 +493,18 @@ function animate() {
     }
     if (mouseDown) {
         mouseDownFrames++;
+        console.log(mouseDownFrames)
         if (mouseDownFrames == 5) {
             globalScale = canvas.offsetWidth / 800;
             globalTranslate = (400 - (canvas.offsetWidth / 2))*(1/globalScale);
         }
         if (!promotionMode) {
-            if ((mouseDownFrames > 0 || mouseDownFrames < 7) && pieceQueue.filter(p => p.movable).length == 0) {
+            dynamicQueue.forEach(e => e.unkillable ? e.kill() : null);
+            if (dynamicQueue.some(x => x.unkillable && x.killSpeed)) {
+                pieceQueue = lastMovable.drop(mousePos, pieceQueue);
+                dynamicQueue = [];
+            }
+            if ((mouseDownFrames > 1 || mouseDownFrames < 5) && !pieceQueue.some(p => p.movable)) {
                 let sq = Math.floor(mousePos[0] / 100) + Math.floor(mousePos[1] / 100) * 8;
                 sq = board_flipped ? 63 - sq : sq;
                 let chosenPiece = -1;
@@ -529,22 +540,29 @@ function animate() {
             }
         }
     } else {
-        mouseDownFrames = 0;
         let movablePiece = pieceQueue.find(element => element.movable);
         if (movablePiece) {
-            pieceQueue = movablePiece.drop(mousePos, pieceQueue);
-            for (let j = 0; j < dynamicQueue.length; j++) {
-                dynamicQueue[j].kill();
-                }
+            if (mouseDownFrames > 50) {
+                pieceQueue = movablePiece.drop(mousePos, pieceQueue);
+                dynamicQueue.forEach(e => e.kill())
+            } else if (mouseDownFrames > 0) {
+                pieceQueue = movablePiece.drop(mousePos, pieceQueue);
+                lastMovable = movablePiece;
+                movablePiece.movable = false;
+                dynamicQueue = dynamicQueue.filter(e => !e.unkillable);
+                dynamicQueue.forEach(e => {e.unkillable = true;})
             }
         }
-    
+        mouseDownFrames = Math.min(0, mouseDownFrames);
+        
+    }
     if (document.switchToGame != -1) {
         mainGame.switchToGame(document.directory.search.games[document.switchToGame][10]);
         document.dispatchEvent(new CustomEvent("ply-update", {detail: {boards: mainGame.boards.slice(0, mainGame.currentBoard + 1), currentBoard: mainGame.currentBoard, allBoards: mainGame.boards}}));
         document.switchToGame = -1;
     }
     
+    // console.log(mouseDownFrames);
     dynamicQueue = dynamicQueue.filter(element => element.alive); 
     for (let piece in pieceQueue) pieceQueue[piece].draw(ctx);
     for (let arrow in arrowQueue) arrowQueue[arrow].draw(ctx);
