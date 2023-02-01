@@ -493,7 +493,6 @@ function animate() {
     }
     if (mouseDown) {
         mouseDownFrames++;
-        console.log(mouseDownFrames)
         if (mouseDownFrames == 5) {
             globalScale = canvas.offsetWidth / 800;
             globalTranslate = (400 - (canvas.offsetWidth / 2))*(1/globalScale);
@@ -562,7 +561,6 @@ function animate() {
         document.switchToGame = -1;
     }
     
-    // console.log(mouseDownFrames);
     dynamicQueue = dynamicQueue.filter(element => element.alive); 
     for (let piece in pieceQueue) pieceQueue[piece].draw(ctx);
     for (let arrow in arrowQueue) arrowQueue[arrow].draw(ctx);
