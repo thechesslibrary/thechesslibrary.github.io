@@ -694,12 +694,6 @@ function animate() {
         document.switchToGame = -1;
     }
     
-    if (document.switchToGame != -1) {
-        mainGame.switchToGame(document.directory.search.games[document.switchToGame][10]);
-        document.dispatchEvent(new CustomEvent("ply-update", {detail: {boards: mainGame.boards.slice(0, mainGame.currentBoard + 1), currentBoard: mainGame.currentBoard, allBoards: mainGame.boards}}));
-        document.switchToGame = -1;
-    }
-    
     // console.log(mouseDownFrames);
     dynamicQueue = dynamicQueue.filter(element => element.alive); 
     for (let piece in pieceQueue) pieceQueue[piece].draw(ctx);
