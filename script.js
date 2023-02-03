@@ -12,9 +12,8 @@ const DESELECTED_GRAY = '#808080';
 let board_flipped = false;
 let globalScale = 1;
 let globalTranslate = 0;
-let animating = false;
-var arrowsEnabled = true;
-var legalsEnabled = true;
+var stockfishEnabled = false;
+var stockfish = new Worker("stockfish.js");
 
 // Web mouse events
 canvas.onmousemove = (event) => {
@@ -22,16 +21,28 @@ canvas.onmousemove = (event) => {
     mousePos[0] = (event.clientX - rect.left) / globalScale;
     mousePos[1] = (event.clientY - rect.top) / globalScale;
 };
-canvas.addEventListener("touchmove", function (e) {
-    e.preventDefault();
-    if (mouseDown) {
-        mousePos[0] = (e.changedTouches[0].clientX - canvas.offsetLeft) / globalScale;
-        mousePos[1] = (e.changedTouches[0].clientY - canvas.offsetTop) / globalScale;}
-  }, false);
 canvas.onmouseup = () => {mouseDown = false;}
 canvas.onmousedown = (e) => {e.preventDefault(); mouseDown = true;}
 canvas.onmouseenter = () => {animating = true; animate();}
 canvas.onmouseleave = () => {animating = false;}
+
+canvas.addEventListener("touchmove", function (e) {
+    
+    if (mouseDown) {
+        mousePos[0] = (e.changedTouches[0].pageX - canvas.offsetLeft) / globalScale;
+        mousePos[1] = (e.changedTouches[0].pageY - canvas.offsetTop) / globalScale;
+    }
+  }, false);
+  canvas.addEventListener('touchstart', (e) => {
+    
+    mouseDown = true; 
+    mousePos[0] = (e.changedTouches[0].pageX - canvas.offsetLeft) / globalScale;
+    mousePos[1] = (e.changedTouches[0].pageY - canvas.offsetTop) / globalScale;
+    e.preventDefault(); 
+});
+canvas.addEventListener('touchend', (e) => {
+    e.preventDefault(); 
+    mouseDown = false;})
 
 $(".legals").click(() => {
     if (legalsEnabled)
@@ -53,6 +64,41 @@ $(".arrows").click(() => {
     arrowsEnabled = !arrowsEnabled;
 });
 
+$(".robot").click(() => {
+    if (stockfishEnabled) {
+        $("#stockfish").css("height", "0vw").css("max-height", "0vw");
+        $("#stockfish > p").css("display", "none");
+        $(".robot").attr("src", "resources\\icons\\robot-sleep.png");
+        stockfish.postMessage("quit");
+    }
+    else {
+        $("#stockfish").css("height", "3vw").css("max-height", "3vw");
+        $("#stockfish > p").css("display", "inline-block");
+        $("#stockfish > p.continuation").css("display", "block");
+        $(".robot").attr("src", "resources\\icons\\robot-wake.png");
+    }
+    stockfishEnabled = !stockfishEnabled;
+});
+
+stockfish.onmessage = (event) => {
+    const msg = event.data.split(" ");
+    if (msg.includes("info")) {
+        if (msg.includes("depth"))
+            document.stockfish.depth = msg.slice(msg.indexOf("depth") + 1, msg.indexOf("depth") + 2);
+        if (msg.includes("cp"))
+            document.stockfish.evaluation = msg.slice(msg.indexOf("cp") + 1, msg.indexOf("cp") + 2) * (mainGame.currentBoard % 2 == 0 ? 1 : -1);
+        if (msg.includes("pv"))
+            document.stockfish.continuation = msg.slice(msg.indexOf("pv") + 1, -2);
+        if (msg.includes("mate")) {
+            document.stockfish.mate = msg.slice(msg.indexOf("mate") + 1, msg.indexOf("mate") + 2);
+            document.stockfish.mate = document.stockfish.evaluation > 0 ? 1 : -1;
+        }
+        else
+            document.stockfish.mate = null;
+    }
+    // console.log(event.data)
+  };
+
 document.addEventListener('keydown', event => {
     if (event.key == 'f') {
       board_flipped = !board_flipped;
@@ -67,77 +113,11 @@ document.addEventListener('keydown', event => {
         mainGame.forward(1);
     }});
 
+
 document.addEventListener('switchToMove', event => {
     mainGame.setMove(event.detail);
 })
 
-// Mobile touch events
-canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault(); 
-    mouseDown = true; 
-    mousePos[0] = (e.changedTouches[0].clientX - canvas.offsetLeft) / globalScale;
-    mousePos[1] = (e.changedTouches[0].clientY - canvas.offsetTop) / globalScale;})
-canvas.addEventListener('touchend', (e) => {
-    e.preventDefault(); 
-    mouseDown = false;})
-
-
-const hexToRGB = (hex) => {
-    return [parseInt(hex.substring(1, 3), 16), parseInt(hex.substring(3, 5), 16), parseInt(hex.substring(5, 7), 16)];
-}
-
-const rgbToHex = (rgb) => {
-    return '#' + rgb.map(x => {
-        const hex = Math.floor(x).toString(16);
-        return hex.length === 1 ? '0' + hex : hex;
-    }).join('');
-}
-
-const color = (piece) => {return piece.toUpperCase() == piece ? 'W' : 'B';}
-
-const oppositeColor = (color) => {return color == 'W' ? 'B' : 'W';}
-
-/** Class for the pieces that show up when a promotion is available.
- * @extends DynamicImage
- */
-class PromotionPiece extends DynamicImage {
-    constructor(...params) {
-        super(...params);
-        this.holdable = false;
-        this.details["x"]["save"] = this.details["x"]["end"];
-        this.details["y"]["save"] = this.details["y"]["end"];
-        this.hovered = false;
-    }
-
-    static construct(dict) {
-        return new PromotionPiece(...DynamicImage.evaluate(dict));
-    }
-
-    draw(ctx, otherParams = []) {
-        if (this.holdable) {
-            this.details["x"]["end"] = mousePos[0];
-            this.details["y"]["end"] = mousePos[1];
-        } else {
-            if (this.details["x"]["frame"] == this.details["x"]["totalFrames"]) {
-                this.details["x"]["end"] = this.details["x"]["save"];
-                this.details["y"]["end"] = this.details["y"]["save"];
-            }
-        }
-        super.draw(ctx, ...otherParams)
-    }
-
-    hover() {
-        this.pre = (ctx) => {
-            ctx.shadowBlur = 5;
-            ctx.shadowColor = "black";
-            this.hovered = true;
-        };
-    }
-    unhover () {
-        this.pre = ()=>{};
-        this.hovered = false;
-    }
-}
 
 /** Class to represent arrows drawn onto the board.
  * @extends Line
@@ -179,6 +159,79 @@ class BoardArrow extends Line{
         ctx.stroke();
         ctx.closePath();
         ctx.restore();
+    }
+}
+
+let animating = false;
+var arrowsEnabled = true;
+var legalsEnabled = true;
+
+function hexToRGB(hex) {
+    return [parseInt(hex.substring(1, 3), 16), parseInt(hex.substring(3, 5), 16), parseInt(hex.substring(5, 7), 16)];
+}
+
+function rgbToHex(rgb) {
+    return '#' + rgb.map(x => {
+        const hex = Math.floor(x).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
+}
+
+function color(piece) {
+    return piece.toUpperCase() == piece ? 'W' : 'B';
+}
+
+function oppositeColor(color) {
+    return color == 'W' ? 'B' : 'W';
+}
+
+let stockfishListener = new Scheduler();
+document.stockfish = {};
+document.stockfish.fen = "";
+document.stockfish.currentBoard = 
+document.stockfish.evaluation = 100;
+document.stockfish.depth = 0;
+document.stockfish.continuation = [];
+
+/** Class for the pieces that show up when a promotion is available.
+ * @extends DynamicImage
+ */
+class PromotionPiece extends DynamicImage {
+    constructor(...params) {
+        super(...params);
+        this.holdable = false;
+        this.details.x.save = this.details.x.end;
+        this.details.y.save = this.details.y.end;
+        this.hovered = false;
+    }
+
+    static construct(dict) {
+        return new PromotionPiece(...DynamicImage.evaluate(dict));
+    }
+
+    draw(ctx, otherParams = []) {
+        if (this.holdable) {
+            this.details.x.end = mousePos[0];
+            this.details.y.end = mousePos[1];
+        } else {
+            if (this.details.x.frame == this.details.x.totalFrames) {
+                this.details.x.end = this.details.x.save;
+                this.details.y.end = this.details.y.save;
+            }
+        }
+        super.draw(ctx, ...otherParams)
+    }
+
+    hover() {
+        this.pre = (ctx) => {
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = "black";
+            this.hovered = true;
+        };
+    }
+    unhover () {
+        this.pre = ()=>{};
+        this.hovered = false;
     }
 }
 
@@ -259,6 +312,34 @@ class Piece extends Sprite {
         return mainGame.attempt(this.sq, destination);
     }
 }
+
+function generateBoardFromSprites(queue, castling, halfMoves, moves, todo) {
+    let pieceArray = Array.from(Array(64), x => "");
+    for (let i = 0; i < queue.length; i++) {
+        pieceArray[queue[i].sq] = queue[i].piece;
+    }
+    //console.log(pieceArray);
+    return new Board(pieceArray, castling, halfMoves, moves, todo);
+}
+
+function generateSpritesFromBoard(pieceArray) {
+    let queue = [];
+    for (let i = 0; i < pieceArray.length; i++) {
+        if (pieceArray[i] != "") {
+            queue.push(new Piece(pieceArray[i], i));
+        }
+    }
+    return queue;
+}
+
+function renderSqToAlgebraicStr(sq) {
+    if (!sq || sq == -1) return "";
+    return String.fromCharCode(97 + sq % 8) + (8 - Math.floor(sq / 8));
+}
+
+let cache = new MaxSizeMap(1000000);
+let validMoveChecks = [0, 0];
+
 
 /** Class to draw rotating squares to indicate legal moves. White by default.
  * @extends DynamicRectangle
@@ -358,12 +439,17 @@ class RenderGame extends Game {
         super.forward(n);
         pieceQueue = this.currentBoard > 0 ? generateSpritesFromBoard(this.board()) : Piece.loadFromFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
         arrowQueue = this.regenerateArrowQueue();
-        
     }
 
     update(...params) {
         super.update(...params);
-        arrowQueue = this.regenerateArrowQueue();
+        dynamicQueue.forEach(e => e.kill());
+        setTimeout((x) => {arrowQueue = x}, 1, this.regenerateArrowQueue());
+    }
+
+    setSelcectedGame(game) {
+        super.setSelcectedGame(game);
+        setTimeout((x) => {arrowQueue = x}, 20, this.regenerateArrowQueue());
     }
 
     attempt(origin, destination) {
@@ -375,10 +461,67 @@ class RenderGame extends Game {
         const board = super.promote(piece);
         return board ? generateSpritesFromBoard(board) : pieceQueue;
     }
+
+    switchToGame(game) {
+        super.switchToGame(game);
+        setTimeout((x) => {arrowQueue = x}, 5, this.regenerateArrowQueue());
+    }
 }
 
-let cache = new MaxSizeMap(1000000);
-let validMoveChecks = [0, 0];
+const stockfishLoop = () => {
+    let sleep = 500;
+    if (stockfishEnabled) {
+        if (document.stockfish.fen != mainGame.fen()) {
+            if (document.stockfish.fen.slice(-2) == "go") {
+                if (document.stockfish.fen.startsWith(mainGame.fen())) {
+                    document.stockfish.fen = mainGame.fen();
+                    stockfish.postMessage("go depth 30");
+                } else {
+                    document.stockfish.fen = "stop";
+                }
+            } else if (document.stockfish.fen == "stop") {
+                stockfish.postMessage(`position fen ${mainGame.fen()}`);
+                document.stockfish.fen = mainGame.fen() + " go";
+                sleep = 750;
+            } else {
+                stockfish.postMessage("quit");
+                document.stockfish.fen = "stop";
+                sleep = 500;
+            }
+        } else {
+            $(".evaluation").text(`${document.stockfish.evaluation >= 0 ? "+" : ""}${(document.stockfish.evaluation / 100).toFixed(2)}`);
+            if (document.stockfish.mate) {
+                $(".evaluation").text(`Mate in ${Math.abs(document.stockfish.mate)}`);
+            }
+            if (parseInt(document.stockfish.evaluation) >= 0)
+                $(".evaluation").css("color", "white");
+            else
+                $(".evaluation").css("color", "gray");
+            $(".depth").text(`at depth ${document.stockfish.depth}`);
+            const game = new Game([...mainGame.boards]);
+            game.dispatchDelayTime = -1;
+            game.currentBoard = mainGame.currentBoard;
+            let continuation = game.currentBoard % 2 == 1 ? `${Math.floor(game.currentBoard / 2) + 1}... ` : "";
+            for (let move of document.stockfish.continuation) {
+                if (game.currentBoard % 2 == 0) continuation += `${Math.floor(game.currentBoard / 2) + 1}. `;
+                const origin = move[0].charCodeAt() - 97 + 8 * (8 - parseInt(move[1]));
+                const destination = move[2].charCodeAt() - 97 + 8 * (8 - parseInt(move[3]));
+                const promotion = move.length == 5 ? move[4] : "";
+                try {
+                    game.update(origin, destination, promotion);
+                }
+                catch (e) {
+                    return new ScheduledTask(stockfishLoop).setSleep(sleep);
+                }
+                continuation += scanToAlgebraic(game.board().scan) + " ";
+            }
+            $(".continuation").text(continuation);
+        }   
+    }
+    return new ScheduledTask(stockfishLoop).setSleep(sleep);
+}
+
+stockfishListener.force(new ScheduledTask(stockfishLoop).setSleep(500));
 
 let broadcastTimer = 0;
 let broadcastSpeed = window.matchMedia("@media (min-width:480px)") ? 250 : 500;
@@ -386,21 +529,11 @@ let broadcastSpeed = window.matchMedia("@media (min-width:480px)") ? 250 : 500;
 let mouseDownFrames = 0;
 let mouseDown = false;
 let mousePos = [0, 0];
-let lastMovable;
 
 const DEFAULT_BOARD = generateBoardFromSprites(pieceQueue, {'W': 3, 'B': 3}, 0, 0, []);
 
 let remove = null;
-var mainGame = new RenderGame([DEFAULT_BOARD]);
-function generateSpritesFromBoard(pieceArray) {
-    let queue = [];
-    for (let i = 0; i < pieceArray.length; i++) {
-        if (pieceArray[i] != "") {
-            queue.push(new Piece(pieceArray[i], i));
-        }
-    }
-    return queue;
-}
+var mainGame = new RenderGame([DEFAULT_BOARD])
 mainGame.promotionCallback = (game, origin, destination) => {
     promotionMode = true;
     game.board().halfMoves++;
@@ -440,12 +573,12 @@ mainGame.promotionCallback = (game, origin, destination) => {
     };
     dynamicQueue.at(-2).drawFunction = (ctx, params) => {ctx.strokeRect(...params); ctx.fillRect(...params);};
     let pieceDict = {"currentFrame": 0, "totalFrames": 10, "startY": startY, "startWidth": 70, "startHeight": 70,
-    "startTransparency": 1, "endY": dynamicQueue.at(-1).details["y"]["end"] + 5, "startTransparency": 1}
+    "startTransparency": 1, "endY": dynamicQueue.at(-1).details.y.end + 5, "startTransparency": 1}
     if (board_flipped) game.board().halfMoves--;    
-    dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details["x"]["end"] + 10, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "N.png" + PIECES_SUFFIX}))
-    dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details["x"]["end"] + 85, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "B.png" + PIECES_SUFFIX}))
-    dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details["x"]["end"] + 85, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "R.png" + PIECES_SUFFIX}))
-    dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details["x"]["end"] + 85, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "Q.png" + PIECES_SUFFIX}))
+    dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details.x.end + 10, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "N.png" + PIECES_SUFFIX}))
+    dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details.x.end + 85, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "B.png" + PIECES_SUFFIX}))
+    dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details.x.end + 85, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "R.png" + PIECES_SUFFIX}))
+    dynamicQueue.push(PromotionPiece.construct({...pieceDict, "startX": dynamicQueue.at(-1).details.x.end + 85, "img": PIECES_PATH + oppositeColor(mainGame.board().color()) + "Q.png" + PIECES_SUFFIX}))
     game.board().halfMoves--;
 }
 document.switchToGame = -1;
@@ -480,10 +613,10 @@ function animate() {
     
     for (let promotion_piece in dynamicQueue) {
         if (dynamicQueue[promotion_piece] instanceof PromotionPiece) {
-            const x = dynamicQueue[promotion_piece].details["x"]["save"];
-            const y = dynamicQueue[promotion_piece].details["y"]["save"];
-            const w = dynamicQueue[promotion_piece].details["width"]["end"];
-            const h = dynamicQueue[promotion_piece].details["height"]["end"];
+            const x = dynamicQueue[promotion_piece].details.x.save;
+            const y = dynamicQueue[promotion_piece].details.y.save;
+            const w = dynamicQueue[promotion_piece].details.width.end;
+            const h = dynamicQueue[promotion_piece].details.height.end;
             if (mousePos[0] >= x && mousePos[0] <= x + w && mousePos[1] >= y && mousePos[1] <= y + h) {
                 dynamicQueue[promotion_piece].hover();
             } else {
@@ -518,7 +651,7 @@ function animate() {
                     let validMoves = mainGame.getProspectsFrom(pieceQueue.at(-1).sq);
                     for (let v in validMoves) {
                         if (legalsEnabled) {
-                            sq = board_flipped ? 63 - validMoves[v]["destination"] : validMoves[v]["destination"];
+                            sq = board_flipped ? 63 - validMoves[v].destination : validMoves[v].destination;
                             dynamicQueue.push(new LegalIndicator(sq, mainGame.board()[validMoves[v].destination] != '' && mainGame.board()[validMoves[v].destination].toUpperCase() != 'X' || (mainGame.board()[validMoves[v].destination].toUpperCase() == 'X' && mainGame.board()[validMoves[v].origin].toUpperCase() == 'P'), !validMoves[v].board.kingSafeOn(-1, pieceQueue.at(-1).color)));
                         }
                     }
@@ -541,7 +674,7 @@ function animate() {
     } else {
         let movablePiece = pieceQueue.find(element => element.movable);
         if (movablePiece) {
-            if (mouseDownFrames > 50) {
+            if (mouseDownFrames > 200) {
                 pieceQueue = movablePiece.drop(mousePos, pieceQueue);
                 dynamicQueue.forEach(e => e.kill())
             } else if (mouseDownFrames > 0) {
@@ -561,6 +694,13 @@ function animate() {
         document.switchToGame = -1;
     }
     
+    if (document.switchToGame != -1) {
+        mainGame.switchToGame(document.directory.search.games[document.switchToGame][10]);
+        document.dispatchEvent(new CustomEvent("ply-update", {detail: {boards: mainGame.boards.slice(0, mainGame.currentBoard + 1), currentBoard: mainGame.currentBoard, allBoards: mainGame.boards}}));
+        document.switchToGame = -1;
+    }
+    
+    // console.log(mouseDownFrames);
     dynamicQueue = dynamicQueue.filter(element => element.alive); 
     for (let piece in pieceQueue) pieceQueue[piece].draw(ctx);
     for (let arrow in arrowQueue) arrowQueue[arrow].draw(ctx);

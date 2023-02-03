@@ -104,7 +104,7 @@ class Game {
         dynamicQueue = [];
         overlayQueue = [];
         this.validProspects = [];
-        setTimeout(() => this.dispatchBoards(), this.dispatchDelayTime);
+        if (this.dispatchDelayTime != -1) setTimeout(() => this.dispatchBoards(), this.dispatchDelayTime);
     }
 
     /** Sets the current Board forwards by n steps.
@@ -117,7 +117,7 @@ class Game {
         promotionMode = false;
         dynamicQueue = [];
         overlayQueue = [];
-        setTimeout(() => this.dispatchBoards(), this.dispatchDelayTime);
+        if (this.dispatchDelayTime != -1) setTimeout(() => this.dispatchBoards(), this.dispatchDelayTime);
     }
 
     /** Sets the current Board to the nth Board.
@@ -220,6 +220,28 @@ class Game {
         return this.validProspects;
     }
 
+    fen() {
+        const board = [...this.board()].map(p => p && p.toUpperCase() != 'X' ? p: '#')
+        let fen = [0, 1, 2, 3, 4, 5, 6, 7].reduce((acc, curr) => {
+            return acc + board.slice(curr * 8, (curr + 1) * 8).join('').replace(/#{1,8}/g, (match) => match.length) + '/'
+        }, "").slice(0, -1);
+        fen += ` ${this.currentBoard % 2 == 0 ? 'w' : 'b'} `;
+        fen += this.board().castling.W % 2 == 1 ? 'K' : '';
+        fen += this.board().castling.W > 1 ? 'Q' : '';
+        fen += this.board().castling.B % 2 == 1 ? 'k' : '';
+        fen += this.board().castling.B > 1 ? 'q' : '';
+        fen += this.board().castling.W == 0 && this.board().castling.B == 0 ? '-' : '';
+        fen += ` ${renderSqToAlgebraicStr(board.findIndex(sq => sq.toUpperCase() == 'X'))}`;
+        if (fen.slice(-1) != " ") 
+            fen += " " 
+        else fen += "- ";
+        const fiftyMove = this.boards.slice(0, this.currentBoard).reduce((acc, board, idx) => 
+            [1, 3, 5].includes((board.scan & 0b0_00_000_111_000_000000_000000) >> 15) ||
+            (board.scan & 0b0_00_000_000_111_000000_000000) >> 12 == 1 ? idx : acc, 0);
+        fen += this.currentBoard - fiftyMove;
+        fen += ` ${Math.round(this.currentBoard / 2)}`;
+        return fen;
+    }
     /** Directly updates the current board with a move.
      * @param {number} origin: origin square
      * @param {number} destination: destination square
@@ -238,6 +260,7 @@ class Game {
         } else {
             board = findProspects(origin, this.board()).filter((prospect) => prospect.destination == destination).at(0).board;
         }
+        board.halfMoves = this.board().halfMoves + 1;
         if (promotion) {
             board.scan = moveObj.getScan([ChessScan.disambiguation, ChessScan.piece]);
             if (promotion.toLowerCase() == 'n') board.scan = board.scan | (1 << 20);
@@ -272,7 +295,7 @@ class Game {
                 this.currentBoard++;
             }
         }
-        if (!force) this.dispatchBoards();
+        if (!force && this.dispatchDelayTime != -1) this.dispatchBoards();
         return true;
     }
 

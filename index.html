@@ -30,11 +30,19 @@
     <div class="flexbox-container">
         <div id="chessboard-column">
             <div id="icon-column">
+                <img class="options-icon robot" src="resources\\icons\\robot-sleep.png"></img>
                 <img class="options-icon legals" src="resources\\icons\\legals-enabled.png"></img>
                 <img class="options-icon arrows" src="resources\\icons\\arrows-enabled.png"></img>
                 <!-- <img class="options-icon" src="resources\\icons\\legals-enabled.png"></img> -->
             </div>
             <div id="chessboard-column-main">
+                <div id="stockfish">
+                    <!-- <p style="display: inline-block; height: 0;">&nbsp;</p> -->
+                    <p class="stockfish-text evaluation">+0.00</p>
+                    <p style="display: inline-block; height: 0; font-size: .25em;">&nbsp;</p>
+                    <p class="stockfish-text data depth">at depth ??<br></p>
+                    <p class="stockfish-text data continuation">null</p>
+                </div>
                 <canvas id="chessboard" width="800" height="800"></canvas>
                 <div id="moves-display">
                     <div class="moves-block">
@@ -74,11 +82,16 @@
                 <div class="directory-header">
                     <div class="directory-header-text">
                         <p>found</p>
-                        <p id="number-of-games">142,357</p>
+                        <p id="number-of-games">781,475</p>
                         <select name="Collection" id="collection">
                             <option value="world_championships">World Championship</option>
                             <option value="candidates">Candidates</option>
                             <option value="interzonals">Interzonal</option>
+                            <option value="women">Women's WCC</option>
+                            <option value="wijk">Wijk aan Zee</option>
+                            <option value="olympiads">Chess Olympiad</option>
+                            <option value="world_cup">World Cup</option>
+                            <option value="sinquefield">Sinquefield</option>
                             <option value="tcec">TCEC</option>
                             <option value="lichess_broadcasts">Lichess Broadcast (2017—)</option>
                             <option value="titled_arena">Lichess Titled Arena</option>
@@ -111,11 +124,13 @@
                     <p class="rating black">(2627)</p>
                 </div>
             </div>
+        </div>
+            <script src="scheduler.js"></script>
             <script src="rendering.js"></script>
             <script src="chess.js"></script>
             <script src="script.js"></script>
             <script src="database.js"> </script>
-            <script src="move-display.js"> </script>
+            <script src="move-display.js"> </script>>
         </div>
 
 </body>
