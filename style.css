@@ -35,13 +35,13 @@
 .robot {
     width: 125%;
     height: auto;
-    transform: translate(-10%, 0);
+    transform: translate(-3%, 0);
     filter: brightness(120%)    ;
     -webkit-filter: brightness(120%)    ;
-    -webkit-transform: translate(-10%, 0);
-    -moz-transform: translate(-10%, 0);
-    -ms-transform: translate(-10%, 0);
-    -o-transform: translate(-10%, 0);
+    -webkit-transform: translate(-3%, 0);
+    -moz-transform: translate(-3%, 0);
+    -ms-transform: translate(-3%, 0);
+    -o-transform: translate(-3%, 0);
 }
 #stockfish {
     height: 0vw;
@@ -580,6 +580,14 @@ p.continuation {
         display: inline-block;
         cursor: pointer;
     }
+    .robot {
+        transform: translate(10%, 0);
+        -webkit-filter: brightness(120%);
+        -webkit-transform: translate(10%, 0);
+        -moz-transform: translate(10%, 0);
+        -ms-transform: translate(10%, 0);
+        -o-transform: translate(10%, 0);
+}
     .unitalic {
         font-style: normal;
     }
