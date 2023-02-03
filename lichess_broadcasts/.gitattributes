@@ -1,0 +1,5 @@
+chunks filter=lfs diff=lfs merge=lfs -text
+lookups filter=lfs diff=lfs merge=lfs -text
+sorted filter=lfs diff=lfs merge=lfs -text
+*.csv filter=lfs diff=lfs merge=lfs -text
+*.json filter=lfs diff=lfs merge=lfs -text
