@@ -289,7 +289,6 @@ class Game {
             if (board.scan == this.boards[this.currentBoard + 1].scan) {
                 this.currentBoard++;
             } else {
-                setSelectedGame(-1);
                 this.boards = this.boards.slice(0, this.currentBoard + 1);
                 this.boards.push(board);
                 this.currentBoard++;

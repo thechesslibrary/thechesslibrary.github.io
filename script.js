@@ -688,6 +688,7 @@ function animate() {
         mouseDownFrames = Math.min(0, mouseDownFrames);
         
     }
+
     if (document.switchToGame != -1) {
         mainGame.switchToGame(document.directory.search.games[document.switchToGame][10]);
         document.dispatchEvent(new CustomEvent("ply-update", {detail: {boards: mainGame.boards.slice(0, mainGame.currentBoard + 1), currentBoard: mainGame.currentBoard, allBoards: mainGame.boards}}));
