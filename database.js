@@ -447,7 +447,9 @@ $(document).on("icon-click", (event) => {
             pgn += game[11];
             let $modal = $("<div>", {id: "modal"});
             let $modalContent = $("<div>", {id: "modal-content"});
-            const $modalText = $("<p>").html(pgn.split("\n").join("<br>"));
+            let $modalText = $("<p>").html(pgn.split("\n").join("<br>"));
+            if (window.matchMedia("(orientation: portrait)").matches && pgn.length > 700)
+                $modalText = $("<p>").html(pgn.split("\n").join("<br>").slice(0, 700) + "...");
             const $closeBtn = $("<button>", {
                 text: "Close",
                 click: function() {
