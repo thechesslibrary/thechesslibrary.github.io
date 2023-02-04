@@ -60,6 +60,8 @@ $(".arrows").click(() => {
     }
     else {
         $(".arrows").attr("src", "resources\\icons\\arrows-enabled.png");
+        setTimeout(() => {arrowQueue = mainGame.regenerateArrowQueue();}, 1);
+
     }
     arrowsEnabled = !arrowsEnabled;
 });
