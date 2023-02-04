@@ -80,6 +80,55 @@ $(".robot").click(() => {
     stockfishEnabled = !stockfishEnabled;
 });
 
+$(".back").click((e) => {
+    e.preventDefault();
+    mainGame.back(1);
+    updateClickArows();
+});
+
+$(".forward").click((e) => {
+    e.preventDefault();
+    mainGame.forward(1);
+    updateClickArows();
+});
+
+$(".full-back").click((e) => {
+    e.preventDefault();
+    mainGame.back(mainGame.currentBoard);
+    updateClickArows();
+});
+
+$(".full-forward").click((e) => {
+    e.preventDefault();
+    mainGame.forward(99999999);
+    updateClickArows();
+});
+
+updateClickArows = () => {
+    if (mainGame.currentBoard == 0) {
+        $(".full-back").css("filter", "invert(50%)").css("webkit-filter", "invert(50%)");
+        $(".full-back").css("cursor", "default");
+        $(".back").css("filter", "invert(50%)").css("webkit-filter", "invert(50%)");
+        $(".back").css("cursor", "default");
+    } else {
+        $(".full-back").css("filter", "invert(0%)").css("webkit-filter", "invert(0%)");
+        $(".full-back").css("cursor", "pointer");
+        $(".back").css("filter", "invert(0%)").css("webkit-filter", "invert(0%)");
+        $(".back").css("cursor", "pointer");
+    }
+    if (mainGame.currentBoard == mainGame.boards.length - 1) {
+        $(".full-forward").css("filter", "invert(50%)").css("webkit-filter", "invert(50%)");
+        $(".full-forward").css("cursor", "default");
+        $(".forward").css("filter", "invert(50%)").css("webkit-filter", "invert(50%)");
+        $(".forward").css("cursor", "default");
+    } else {
+        $(".full-forward").css("filter", "invert(0%)").css("webkit-filter", "invert(0%)");
+        $(".full-forward").css("cursor", "pointer");
+        $(".forward").css("filter", "invert(0%)").css("webkit-filter", "invert(0%)");
+        $(".forward").css("cursor", "pointer");
+    }
+}
+
 stockfish.onmessage = (event) => {
     const msg = event.data.split(" ");
     if (msg.includes("info")) {
@@ -445,6 +494,7 @@ class RenderGame extends Game {
         super.update(...params);
         dynamicQueue.forEach(e => e.kill());
         setTimeout((x) => {arrowQueue = x}, 1, this.regenerateArrowQueue());
+        updateClickArows();
     }
 
     setSelcectedGame(game) {
@@ -465,6 +515,7 @@ class RenderGame extends Game {
     switchToGame(game) {
         super.switchToGame(game);
         setTimeout((x) => {arrowQueue = x}, 5, this.regenerateArrowQueue());
+        updateClickArows();
     }
 }
 
@@ -585,6 +636,7 @@ document.switchToGame = -1;
 
 function animate() {
     if (mainGame.presentBoards) {
+        
         if (!mainGame.queuedBoards) {
             mainGame.queuedBoards = mainGame.presentBoards;
             if ($("#games-container")[0].childElementCount != 0)

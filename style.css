@@ -95,6 +95,61 @@ p.data {
 p.continuation {
     font-size: 1.2em;
 }
+
+.move-buttons {
+    height: fit-content;
+    display: flex;
+    justify-content: space-around;
+    flex-direction: row;
+    padding-bottom: 0;
+    padding-top: 5px;
+}
+
+.move-button {
+    width: 40px;
+    height: 40px;
+    margin: 0 20px 0 20px;
+}
+
+.full-back {
+    background-image: url('resources\\icons\\full-back.svg');
+    margin-left: 30px;
+    filter: invert(50%);
+    -webkit-filter: invert(50%);
+    cursor: default;
+}
+
+.back {
+    background-image: url('resources\\icons\\back.svg');
+    filter: invert(50%);
+    -webkit-filter: invert(50%);
+    cursor: default;
+}
+
+.forward {
+    background-image: url('resources\\icons\\back.svg');
+    transform: rotate(180deg);
+    -webkit-transform: rotate(180deg);
+    -moz-transform: rotate(180deg);
+    -ms-transform: rotate(180deg);
+    -o-transform: rotate(180deg);
+    filter: invert(50%);
+    -webkit-filter: invert(50%);
+}
+
+.full-forward {
+    background-image: url('resources\\icons\\full-back.svg');
+    transform: rotate(180deg);
+    -webkit-transform: rotate(180deg);
+    -moz-transform: rotate(180deg);
+    -ms-transform: rotate(180deg);
+    -o-transform: rotate(180deg);
+    margin-right: 30px;
+    filter: invert(50%);
+    -webkit-filter: invert(50%);
+    cursor: default;
+}
+
 @media (orientation: landscape) {
     #chessboard-column {
         width: 27vw;
@@ -186,7 +241,8 @@ p.continuation {
     -o-transition: height 1s ease;
 }
 .moves-block {
-    padding: 20px;
+    padding-left: 20px;
+    padding-top: 5px;
     padding-bottom: 1.75vh;   
 }
 .selected-game-container {
@@ -587,7 +643,10 @@ p.continuation {
         -moz-transform: translate(10%, 0);
         -ms-transform: translate(10%, 0);
         -o-transform: translate(10%, 0);
-}
+    }
+    .moves-block {
+        padding-top: 0px;
+    }
     .unitalic {
         font-style: normal;
     }
@@ -676,7 +735,7 @@ p.continuation {
     .moves-block {
         padding: 20px;
         padding-bottom: 1.75vh;
-        
+        padding-top: 5px;
     }
     .selected-game-container {
         padding-left: 20px;
