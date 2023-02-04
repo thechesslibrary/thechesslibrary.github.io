@@ -3,10 +3,12 @@ const prefix = 'https://media.githubusercontent.com/media/thechesslibrary/theche
 
 $(document).ready(() => {
     document.chessboardEnabled = false;
-    // $(".games-container").empty();
     loadDatabase($("#collection").val());
     $.get(prefix + 'transpositions.json', (t) => {
-        database.transpositions = JSON.parse(t);
+        if (prefix.includes("github"))
+            database.transpositions = JSON.parse(t);
+        else
+            database.transpositions = t;
     });
     
 });
@@ -26,7 +28,8 @@ function loadDatabase(db) {
         activeDatabase = db;
         $.get(prefix + db + '/lookups/lookups.json', (r) => {
                 database.lookup = new Map();
-                r = JSON.parse(r);
+                if (prefix.includes("github"))
+                    r = JSON.parse(r);
                 for (let moveLength of Object.keys(r)) {
                     let section = new Map();
                     for (const [move, data] of Object.entries(r[moveLength])) {
@@ -128,7 +131,19 @@ function prepareDirectory(boards) {
     let visited = new Set();
     return new ScheduledTask(getTranspositions, [aliases, transpositions, visited, currMoveLength, moves]).setSleep(5);
 }
-const maxSize = {"world_championships": 2, "titled_tuesday": 32, "titled_arena": 16, "candidates": 2, "interzonals": 2, "lichess_broadcasts": 8};
+const maxSize = {"world_championships": 2, 
+    "titled_tuesday": 32, 
+    "titled_arena": 16, 
+    "candidates": 2, 
+    "interzonals": 2, 
+    "lichess_broadcasts": 8,
+    "olympiads": 8,
+    "wijk": 20,
+    "world_cup": 2,
+    "sinquefield": 2,
+    "women": 2,
+    "tcec": 2
+};
 function getTranspositions(aliases, transpositions, visited, currMoveLength, moves) {
     let remLength = aliases.length
     for (let a = 0; a < remLength; a++) {
@@ -423,6 +438,10 @@ $(document).on("icon-click", (event) => {
                     break;
                 case "lichess_broadcasts":
                     window.open(`https://www.youtube.com/results?search_query=${game[2]}+${game[4]}+${game[5]}`);
+                case "wijk":
+                    window.open(`https://www.youtube.com/results?search_query=tata+steel+${game[4]}+${game[5]}+${game[3].slice(0, 4)}`);
+                case "olympiads":
+                    window.open(`https://www.youtube.com/results?search_query=olympiads+${game[4]}+${game[5]}+${game[3].slice(0, 4)}`);
             }
             break;
         case "pgn":
