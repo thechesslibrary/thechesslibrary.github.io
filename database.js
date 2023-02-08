@@ -365,7 +365,7 @@ function displayGame(arr, idx=-1) {
     const num = idx;
     const color = arr[11] == "1-0" ? "white-border" : arr[11] == "0-1" ? "black-border" : "";
     let $gameContainer = $(`<div class="game-container ${color}"></div>`);
-    const round = ['world_championships','candidates','interzonals'].includes($("#collection").val()) ? ` Rd. ${arr[1]}` : ''
+    const round = ['world_championships','candidates','interzonals','wijk','olympiads','sinquefield','titled_tuesday','wijk','women','world_cup'].includes($("#collection").val()) ? ` Rd. ${arr[1]}` : ''
     let $event = $('<p class="event-date-result"></p>').text(arr[2] + round);
     let $dateAndResult = $('<p class="event-date-result date-result"></p>').text(arr[3] + " \xa0 •\xa0  " + arr[11]);
     let $whiteTitle = $('<p class="title"></p>').text(arr[8]);
